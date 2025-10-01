@@ -1,5 +1,5 @@
 from module.base.timer import Timer
-from module.base.utils import crop, rgb2gray
+from module.base.utils import crop, rgb2gray, save_image
 from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_ITEMS_3, GET_ITEMS_3_CHECK
 from module.logger import logger
 from module.research.assets import *
@@ -103,11 +103,11 @@ class ResearchUI(UI):
         for index, status, scaling in zip(range(5), RESEARCH_STATUS, RESEARCH_SCALING):
             info = status.crop((0, -40, 200, 0))
             piece = rgb2gray(crop(image, info.area, copy=False))
-            if TEMPLATE_WAITING.match(piece, scaling=scaling, similarity=0.75):
+            if TEMPLATE_WAITING.match(piece, scaling=scaling, similarity=0.6):
                 out.append('waiting')
-            elif TEMPLATE_RUNNING.match(piece, scaling=scaling, similarity=0.75):
+            elif TEMPLATE_RUNNING.match(piece, scaling=scaling, similarity=0.6):
                 out.append('running')
-            elif TEMPLATE_DETAIL.match(piece, scaling=scaling, similarity=0.75):
+            elif TEMPLATE_DETAIL.match(piece, scaling=scaling, similarity=0.6):
                 out.append('detail')
             else:
                 out.append('unknown')

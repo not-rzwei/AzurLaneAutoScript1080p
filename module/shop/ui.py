@@ -276,5 +276,5 @@ class ShopUI(UI):
                 break
 
             # Large offset cause it camera in academy can be move around
-            if self.appear_then_click(ACADEMY_GOTO_MUNITIONS, offset=(200, 200), interval=5):
+            if self.appear_then_click(ACADEMY_GOTO_MUNITIONS, offset=(200, 200), interval=5, similarity=0.78):
                 continue

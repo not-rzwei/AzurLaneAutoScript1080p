@@ -73,22 +73,40 @@ class Level(ModuleBase):
         return self.lv
 
     def lv_triggered(self):
-        limit = self.config.StopCondition_ReachLevel
-        if not limit:
+        limit_config = self.config.StopCondition_ReachLevel
+        limits = []
+
+        if not limit_config:
+            return False
+
+        if isinstance(limit_config, (int, float)):
+            limits.append(limit_config)
+        else:
+            for limit in limit_config.split(','):
+                try:
+                    limits.append(int(limit))
+                except (ValueError, TypeError):
+                    logger.warning('Limit configuration not correct, please check')
+                    pass
+
+        logger.info(f'Level limits: {limits}')
+
+        if len(limits) == 0:
             return False
 
         for i in range(6):
             before, after = self._lv_before_battle[i], self.lv[i]
-            if after > before > 0:
-                logger.info(f'Position {i} LV.{before} -> LV.{after}')
-            if after >= limit > before > 0:
-                if after - before == 1 or after < 35:
-                    logger.info(f'Position {i} LV.{limit} Reached')
-                    self.config.LV_TRIGGERED = True
-                    return True
-                else:
-                    logger.warning(f'Level gap between {before} and {after} is too large. '
-                                   f'This will not be considered as a trigger')
+            for limit in limits:
+                if after > before > 0:
+                    logger.info(f'Position {i} LV.{before} -> LV.{after}')
+                if after >= limit > before > 0:
+                    if after - before == 1 or after < 35:
+                        logger.info(f'Position {i} LV.{limit} Reached')
+                        self.config.LV_TRIGGERED = True
+                        return True
+                    else:
+                        logger.warning(f'Level gap between {before} and {after} is too large. '
+                                       f'This will not be considered as a trigger')
 
         return False
 
