@@ -1,4 +1,5 @@
 import os
+import random
 import time
 from collections import deque
 from datetime import datetime
@@ -28,6 +29,8 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
     _screenshot_interval = Timer(0.1)
     _last_save_time = {}
     image: np.ndarray
+
+    interpolation_methods = [cv2.INTER_AREA, cv2.INTER_LANCZOS4]
 
     @cached_property
     def screenshot_methods(self):
@@ -66,7 +69,7 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
             self.image = method()
             width, height = image_size(self.image)
             if width != 1280 or height != 720:
-                self.image = cv2.resize(self.image, (1280, 720), interpolation=cv2.INTER_LANCZOS4)
+                self.image = cv2.resize(self.image, (1280, 720), interpolation=random.choice(self.interpolation_methods))
 
             if self.config.Emulator_ScreenshotDedithering:
                 # This will take 40-60ms

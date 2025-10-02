@@ -135,7 +135,7 @@ class GlobeOperation(ActionPointHandler):
         return self.appear(ZONE_SWITCH, offset=(5, 5))
 
     _zone_select_offset = (20, 200)
-    _zone_select_similarity = 0.75
+    _zone_select_similarity = 0.65
 
     def get_zone_select(self):
         """
