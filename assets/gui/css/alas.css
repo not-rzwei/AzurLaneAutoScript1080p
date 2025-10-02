@@ -294,6 +294,7 @@ pre.rich-traceback-code {
 }
 
 #pywebio-scope-header_title {
+    display: none;
     margin: auto;
 }
 

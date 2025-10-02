@@ -2,7 +2,7 @@ const yaml = require('yaml');
 const fs = require('fs');
 const path = require('path');
 
-// export const alasPath = 'D:/AzurLaneAutoScript';
+// export const alasPath = 'E:/Tools/AzurLaneAutoScript';
 export const alasPath = process.cwd();
 
 const file = fs.readFileSync(path.join(alasPath, './config/deploy.yaml'), 'utf8');

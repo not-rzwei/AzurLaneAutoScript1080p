@@ -37,6 +37,12 @@ alas.end(function (err: string) {
 
 let mainWindow: BrowserWindow | null = null;
 
+// Window state tracking for shrink functionality
+let isShrunk = false;
+let positionToRestore: { x: number; y: number } | null = null;
+let shrinkPosition: { x: number; y: number } | null = null;
+let originalSize: { width: number; height: number } | null = null;
+
 const createWindow = async () => {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -104,9 +110,47 @@ const createWindow = async () => {
   ipcMain.on('window-close', function () {
     alas.kill(function () {
       mainWindow?.close();
-    })
+    });
   });
+  ipcMain.on('window-shrink', function () {
+    if (!mainWindow) return;
 
+    if (isShrunk) {
+      // Unshrinking: restore to previous unshrunk state and save current shrink position
+      const [currentX, currentY] = mainWindow.getPosition();
+      shrinkPosition = { x: currentX, y: currentY };
+
+      if (originalSize) {
+        mainWindow.setSize(originalSize.width, originalSize.height);
+        originalSize = null;
+      }
+      if (positionToRestore) {
+        mainWindow.setPosition(positionToRestore.x, positionToRestore.y);
+        // Keep positionToRestore for next shrink cycle
+      }
+
+      isShrunk = false;
+      mainWindow.setAlwaysOnTop(false);
+      mainWindow?.webContents.send('window-shrink-state', false);
+    } else {
+      // Shrinking: save current position first, then use saved shrink position if available
+      const [originalWidth, originalHeight] = mainWindow.getSize();
+      originalSize = { width: originalWidth, height: originalHeight };
+
+      const [originalX, originalY] = mainWindow.getPosition();
+      positionToRestore = { x: originalX, y: originalY };
+
+      if (shrinkPosition) {
+        mainWindow.setPosition(shrinkPosition.x, shrinkPosition.y);
+        shrinkPosition = null;
+      }
+
+      isShrunk = true;
+      mainWindow.setSize(350, 51);
+      mainWindow.setAlwaysOnTop(true);
+      mainWindow?.webContents.send('window-shrink-state', true);
+    }
+  });
   // Tray
   const tray = new Tray(path.join(__dirname, 'icon.png'));
   const contextMenu = Menu.buildFromTemplate([

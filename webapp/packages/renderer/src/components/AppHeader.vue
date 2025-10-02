@@ -2,9 +2,12 @@
   <div class="app-header">
     <div class="header-drag"></div>
     <div class="header-icon">
-      <ArrowDownOutlined class="icon" @click="trayWin"></ArrowDownOutlined>
-      <MinusOutlined class="icon" @click="minimizeWin"></MinusOutlined>
-      <BorderOutlined class="icon" @click="maximizeWin"></BorderOutlined>
+      <ShrinkOutlined class="icon" :class="{ 'shrunk': isShrunk }" @click="shrinkWin"></ShrinkOutlined>
+      <template v-if="!isShrunk">
+        <ArrowDownOutlined class="icon" @click="trayWin"></ArrowDownOutlined>
+        <MinusOutlined class="icon" @click="minimizeWin"></MinusOutlined>
+        <BorderOutlined class="icon" @click="maximizeWin"></BorderOutlined>
+      </template>
       <CloseOutlined class="icon" @click="closeWin"></CloseOutlined>
     </div>
   </div>
@@ -12,9 +15,9 @@
 
 <script lang="ts">
   import {defineComponent} from 'vue';
-  import {BorderOutlined, CloseOutlined, MinusOutlined, ArrowDownOutlined} from '@ant-design/icons-vue';
+  import {BorderOutlined, CloseOutlined, MinusOutlined, ArrowDownOutlined,ShrinkOutlined} from '@ant-design/icons-vue';
 
-  const ipcRenderer = require('electron').ipcRenderer;
+  const { ipcRenderer } = require('electron');
 
   export default defineComponent({
     name: 'AppHeader',
@@ -23,7 +26,15 @@
       MinusOutlined,
       BorderOutlined,
       CloseOutlined,
+      ShrinkOutlined,
     },
+    props: {
+      isShrunk: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    emits: ['shrink-click'],
     methods: {
       trayWin() {
         ipcRenderer.send('window-tray');
@@ -36,6 +47,9 @@
       },
       closeWin() {
         ipcRenderer.send('window-close');
+      },
+      shrinkWin() {
+        this.$emit('shrink-click');
       },
     },
   });
@@ -70,5 +84,9 @@
   .icon {
     padding: 10px;
     margin-right: 5px;
+  }
+
+  .icon.shrunk {
+    color: #1890ff;
   }
 </style>
