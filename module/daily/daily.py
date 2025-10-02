@@ -233,7 +233,7 @@ class Daily(Combat, DailyEquipment):
                 reward_received = True
                 continue
             if self.config.Daily_UseDailySkip:
-                if self.appear_then_click(DAILY_SKIP, offset=(20, 20), interval=5, similarity=0.78):
+                if self.appear_then_click(DAILY_SKIP, offset=(20, 20), interval=5, similarity=0.7):
                     continue
             else:
                 if self.appear_then_click(DAILY_NORMAL_RUN, offset=(20, 20), interval=5):

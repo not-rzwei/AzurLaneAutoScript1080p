@@ -18,7 +18,7 @@ class Switch:
         submarine_view.set('on', main=self)
     """
 
-    def __init__(self, name='Switch', is_selector=False, offset=0):
+    def __init__(self, name='Switch', is_selector=False, offset=0, similarity=0.82):
         """
         Args:
             name (str):
@@ -30,6 +30,7 @@ class Switch:
         self.name = name
         self.is_selector = is_selector
         self.offset = offset
+        self.similarity = similarity
         self.state_list = []
         self.set_unknown_timer = Timer(5, count=10)
         self.set_click_timer = Timer(1, count=2)
@@ -71,7 +72,7 @@ class Switch:
             str: state name or 'unknown'.
         """
         for data in self.state_list:
-            if main.appear(data['check_button'], offset=data['offset']):
+            if main.appear(data['check_button'], offset=data['offset'], similarity=self.similarity):
                 return data['state']
 
         return 'unknown'
