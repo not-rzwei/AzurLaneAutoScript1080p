@@ -32,7 +32,7 @@ class GlobeOperation(ActionPointHandler):
             Button:
         """
         for zone in ZONE_TYPES:
-            if self.appear(zone, offset=(20, 20), similarity=0.7):
+            if self.appear(zone, offset=(20, 20), similarity=0.65):
                 for button in ASSETS_PINNED_ZONE:
                     button.load_offset(zone)
 
