@@ -1,6 +1,7 @@
 from module.base.button import ButtonGrid
 from module.base.decorator import cached_property
 from module.base.timer import Timer
+from module.base.utils import save_image
 from module.combat.assets import *
 from module.logger import logger
 from module.reward.assets import *
@@ -110,7 +111,7 @@ class Reward(UI):
             for button in [MISSION_MULTI, MISSION_SINGLE]:
                 if not click_timer.reached():
                     continue
-                if self.match_template_color(button, offset=(20, 200), interval=interval):
+                if self.appear(button, offset=(20, 200), interval=interval, similarity=0.7):
                     self.device.click(button)
                     clicked_mission = True
                     exit_timer.reset()
@@ -195,7 +196,7 @@ class Reward(UI):
         self._reward_wait_mission_list()
 
         if not self.appear(MISSION_MULTI, offset=(20, 200)) and \
-                not self.appear(MISSION_SINGLE, offset=(20, 200)):
+                not self.appear(MISSION_SINGLE, offset=(20, 200), similarity=0.7):
             logger.info('No MISSION_MULTI or MISSION_SINGLE')
             return False
 
