@@ -1,6 +1,7 @@
 from module.base.button import Button
 from module.base.decorator import run_once
 from module.base.timer import Timer
+from module.base.utils import save_image
 from module.coalition.assets import NEONCITY_FLEET_PREPARATION, NEONCITY_PREPARATION_EXIT
 from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_SHIP
 from module.event_hospital.assets import HOSIPITAL_CLUE_CHECK, HOSPITAL_BATTLE_EXIT
@@ -244,6 +245,8 @@ class UI(InfoHandler):
                 self.device.screenshot()
 
             # Destination page
+            logger.hr("Page arrive", level=1)
+            save_image(self.device.image, "debug/ui_goto.png")
             if self.ui_page_appear(page=destination, offset=offset):
                 logger.info(f'Page arrive: {destination}')
                 break

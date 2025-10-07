@@ -1,3 +1,4 @@
+from module.base.utils import save_image
 import module.config.server as server
 from module.base.timer import Timer
 from module.logger import logger
