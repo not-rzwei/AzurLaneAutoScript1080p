@@ -108,9 +108,14 @@ class Reward(UI):
                         clicked_mission = False
                     continue
 
+            if self.image_color_count(MISSION_WEEKLY_UNFINISH, color=(133, 134, 136), threshold=221, count=20):
+                logger.info('Weekly mission is not finished')
+                break
+
             for button in [MISSION_MULTI, MISSION_SINGLE]:
                 if not click_timer.reached():
                     continue
+                
                 if self.appear(button, offset=(20, 200), interval=interval, similarity=0.7):
                     self.device.click(button)
                     clicked_mission = True
