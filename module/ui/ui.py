@@ -244,9 +244,6 @@ class UI(InfoHandler):
             else:
                 self.device.screenshot()
 
-            # Destination page
-            logger.hr("Page arrive", level=1)
-            save_image(self.device.image, "debug/ui_goto.png")
             if self.ui_page_appear(page=destination, offset=offset):
                 logger.info(f'Page arrive: {destination}')
                 break

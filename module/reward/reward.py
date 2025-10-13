@@ -332,6 +332,7 @@ class Reward(UI):
             oil=self.config.Reward_CollectOil,
             coin=self.config.Reward_CollectCoin,
             exp=self.config.Reward_CollectExp)
+        self.handle_info_bar()
         self.ui_goto(page_main)
         self.reward_mission(daily=self.config.Reward_CollectMission,
                             weekly=self.config.Reward_CollectWeeklyMission)
