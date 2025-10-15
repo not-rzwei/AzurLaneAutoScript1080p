@@ -180,7 +180,7 @@ class Reward(UI):
             if self.appear(MISSION_MULTI, offset=(20, 20)):
                 logger.info(f'mission list: {MISSION_MULTI}')
                 break
-            if MISSION_SINGLE.match_luma(self.device.image, offset=(20, 200)):
+            if MISSION_SINGLE.match_luma(self.device.image, offset=(50, 200)):
                 logger.info(f'mission list: {MISSION_SINGLE}')
                 break
             if self.appear(MISSION_UNFINISH, offset=(20, 20)):
