@@ -426,6 +426,7 @@ class GeneratedConfig:
     # Group `OpsiMonthBoss`
     OpsiMonthBoss_Mode = 'normal'  # normal, normal_hard
     OpsiMonthBoss_CheckAdaptability = True
+    OpsiMonthBoss_AdaptabilityThreshold = '203/203/156'
     OpsiMonthBoss_ForceRun = False
 
     # Group `OpsiMeowfficerFarming`

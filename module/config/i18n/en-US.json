@@ -2080,7 +2080,8 @@
       "anchorage": "Anchorage",
       "noshiro": "Noshiro",
       "sirius": "Sirius",
-      "new_jersey": "New Jersey"
+      "new_jersey": "New Jersey",
+      "taihou": "taihou"
     }
   },
   "Daily": {
@@ -2494,6 +2495,10 @@
     "CheckAdaptability": {
       "name": "Only attack boss when adaptability >= 203/203/156",
       "help": ""
+    },
+    "AdaptabilityThreshold": {
+      "name": "OpsiMonthBoss.AdaptabilityThreshold.name",
+      "help": "OpsiMonthBoss.AdaptabilityThreshold.help"
     },
     "ForceRun": {
       "name": "Force Run",

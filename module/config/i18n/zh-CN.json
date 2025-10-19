@@ -2080,7 +2080,8 @@
       "anchorage": "安克雷奇",
       "noshiro": "能代",
       "sirius": "天狼星",
-      "new_jersey": "新泽西"
+      "new_jersey": "新泽西",
+      "taihou": "taihou"
     }
   },
   "Daily": {
@@ -2494,6 +2495,10 @@
     "CheckAdaptability": {
       "name": "适应性在203/203/156以上才打BOSS",
       "help": ""
+    },
+    "AdaptabilityThreshold": {
+      "name": "OpsiMonthBoss.AdaptabilityThreshold.name",
+      "help": "OpsiMonthBoss.AdaptabilityThreshold.help"
     },
     "ForceRun": {
       "name": "无视运行间隔强制运行",

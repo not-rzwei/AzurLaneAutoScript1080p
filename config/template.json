@@ -1843,6 +1843,7 @@
     "OpsiMonthBoss": {
       "Mode": "normal",
       "CheckAdaptability": true,
+      "AdaptabilityThreshold": "203/203/156",
       "ForceRun": false
     },
     "OpsiFleetFilter": {

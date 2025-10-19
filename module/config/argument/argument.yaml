@@ -722,6 +722,7 @@ OpsiMonthBoss:
     value: normal
     option: [ normal, normal_hard ]
   CheckAdaptability: true
+  AdaptabilityThreshold: 203/203/156
   ForceRun: false
 OpsiMeowfficerFarming:
   ActionPointPreserve: 1000

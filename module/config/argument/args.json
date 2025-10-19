@@ -8954,6 +8954,10 @@
         "type": "checkbox",
         "value": true
       },
+      "AdaptabilityThreshold": {
+        "type": "input",
+        "value": "203/203/156"
+      },
       "ForceRun": {
         "type": "checkbox",
         "value": false

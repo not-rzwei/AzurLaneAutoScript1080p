@@ -839,7 +839,18 @@ class OperationSiren(OSMap):
         if self.config.OpsiMonthBoss_CheckAdaptability:
             self.os_map_goto_globe(unpin=False)
             adaptability = self.get_adaptability()
-            if (np.array(adaptability) < (203, 203, 156)).any():
+            default_threshold = (203, 203, 156)
+            threshold = self.config.OpsiMonthBoss_AdaptabilityThreshold
+            if threshold and isinstance(threshold, str):
+                threshold = [int(x) for x in threshold.split('/')]
+                if len(threshold) == 3:
+                    threshold = tuple(threshold)
+
+            if not threshold or not isinstance(threshold, tuple):
+                logger.warning(f"Invalid adaptability threshold: {threshold}, using default threshold: {default_threshold}")
+                threshold = default_threshold
+
+            if (np.array(adaptability) < threshold).any():
                 logger.info("Adaptability is lower than suppression level, get stronger and come back")
                 self.config.task_delay(server_update=True)
                 self.config.task_stop()
