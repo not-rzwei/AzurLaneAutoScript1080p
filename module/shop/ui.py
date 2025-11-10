@@ -1,6 +1,8 @@
+from numpy import save
 from module.base.button import ButtonGrid
 from module.base.decorator import cached_property
 from module.base.timer import Timer
+from module.base.utils import save_image
 from module.handler.assets import POPUP_CONFIRM
 from module.logger import logger
 from module.shop.assets import *
@@ -136,9 +138,9 @@ class ShopUI(UI):
             else:
                 self.device.screenshot()
 
-            if self.appear(page_munitions.check_button, offset=(20, 20)):
+            if self.appear(page_munitions.check_button, offset=(20, 20), similarity=0.7):
                 break
 
             # Large offset cause it camera in academy can be move around
-            if self.appear_then_click(ACADEMY_GOTO_MUNITIONS, offset=(200, 200), interval=5, similarity=0.78):
+            if self.appear_then_click(ACADEMY_GOTO_MUNITIONS, offset=(200, 200), interval=5, similarity=0.7):
                 continue

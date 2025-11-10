@@ -499,15 +499,15 @@ class InfoHandler(ModuleBase):
         Returns:
             bool: If handled
         """
-        if self.appear(GAME_TIPS, offset=(20, 20), interval=2) and self.image_color_count(
+        if self.appear(GAME_TIPS, offset=(20, 20), interval=2, threshold=0.8) and self.image_color_count(
                 GAME_TIPS.button, color=(40, 40, 40), threshold=240, count=50):
             self.device.click(GAME_TIPS)
             return True
-        if self.appear(GAME_TIPS3, offset=(20, 20), interval=2) and self.image_color_count(
+        if self.appear(GAME_TIPS3, offset=(20, 20), interval=2, threshold=0.8) and self.image_color_count(
                 GAME_TIPS3.button, color=(40, 40, 40), threshold=240, count=50):
             self.device.click(GAME_TIPS)
             return True
-        if self.appear(GAME_TIPS4, offset=(20, 20), interval=2) and self.image_color_count(
+        if self.appear(GAME_TIPS4, offset=(20, 20), interval=2, threshold=0.8) and self.image_color_count(
                 GAME_TIPS4.button, color=(40, 40, 40), threshold=240, count=50):
             self.device.click(GAME_TIPS)
             return True
