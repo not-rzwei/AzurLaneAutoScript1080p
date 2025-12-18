@@ -309,7 +309,6 @@
       "ServerUpdate": "00:00"
     },
     "GemsFarming": {
-      "ChangeFlagship": "ship",
       "CommonCV": "any",
       "ChangeVanguard": "ship",
       "CommonDD": "any",
@@ -615,7 +614,7 @@
       "AmbushEvade": true
     },
     "Coalition": {
-      "Mode": "hard",
+      "Mode": "area1-normal",
       "Fleet": "single"
     },
     "StopCondition": {
@@ -1186,7 +1185,7 @@
       "AmbushEvade": true
     },
     "Coalition": {
-      "Mode": "sp",
+      "Mode": "area1-normal",
       "Fleet": "single"
     },
     "StopCondition": {
