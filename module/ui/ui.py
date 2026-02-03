@@ -1,6 +1,7 @@
 from module.base.button import Button
 from module.base.decorator import run_once
 from module.base.timer import Timer
+from module.base.utils import *
 from module.coalition.assets import NEONCITY_FLEET_PREPARATION, NEONCITY_PREPARATION_EXIT, DAL_DIFFICULTY_EXIT
 from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_SHIP
 from module.event_hospital.assets import HOSIPITAL_CLUE_CHECK, HOSPITAL_BATTLE_EXIT
@@ -169,6 +170,7 @@ class UI(InfoHandler):
         orientation_timer = Timer(5)
 
         timeout = Timer(10, count=20).start()
+        last_resort_click = False
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
@@ -179,7 +181,13 @@ class UI(InfoHandler):
 
             # End
             if timeout.reached():
-                break
+                if last_resort_click:
+                    break
+                
+                self.device.click(GOTO_MAIN)
+                last_resort_click = True
+                timeout.reset()
+                continue
 
             # Known pages
             for page in Page.iter_pages():
