@@ -78,7 +78,7 @@ class Reward(UI):
         clicked = False
         click_interval = Timer(1, count=2)
         for _ in self.loop():
-            if clicked and not self.ui_page_appear(page_mission):
+            if clicked:
                 return clicked
             if click_interval.reached():
                 if self.appear_then_click(MISSION_MULTI, offset=(20, 20)):
