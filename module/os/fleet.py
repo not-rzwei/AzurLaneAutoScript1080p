@@ -885,6 +885,15 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         ocr = PercentageOcr(STRONGHOLD_PERCENTAGE, letter=(255, 255, 255), threshold=128, name='STRONGHOLD_PERCENTAGE')
         result = ocr.ocr(self.device.image)
         result = result.rstrip('7Kk')
+
+        replacements = {
+            'U': '0',   # mistaken for 0
+            'P6': '',   # noise
+        }
+
+        for wrong, correct in replacements.items():
+            result = result.replace(wrong, correct)
+
         for starter in ['100', '80', '60', '40', '20', '0']:
             if result.startswith(starter):
                 result = starter
