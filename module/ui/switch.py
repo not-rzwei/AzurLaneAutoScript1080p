@@ -29,9 +29,9 @@ class Switch:
         """
         self.name = name
         self.is_selector = is_selector
-        self.offset = offset
-        self.similarity = similarity
+        self._offset = offset
         self.state_list = []
+        self.similarity = similarity
         self.set_unknown_timer = Timer(5, count=10)
         self.set_click_timer = Timer(1, count=2)
         self.wait_timeout = Timer(2, count=4)
@@ -50,8 +50,18 @@ class Switch:
             'state': state,
             'check_button': check_button,
             'click_button': click_button if click_button is not None else check_button,
-            'offset': offset if offset else self.offset
+            'offset': offset if offset else self._offset
         })
+
+    @property
+    def offset(self):
+        return self._offset
+
+    @offset.setter
+    def offset(self, value):
+        self._offset = value
+        for data in self.state_list:
+            data['offset'] = value
 
     def appear(self, main):
         """
