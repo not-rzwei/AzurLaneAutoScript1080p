@@ -30,8 +30,8 @@ class Switch:
         self.name = name
         self.is_selector = is_selector
         self._offset = offset
-        self.state_list = []
         self.similarity = similarity
+        self.state_list = []
         self.set_unknown_timer = Timer(5, count=10)
         self.set_click_timer = Timer(1, count=2)
         self.wait_timeout = Timer(2, count=4)
