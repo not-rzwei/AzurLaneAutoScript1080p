@@ -43,6 +43,11 @@ class SwitchAutoSearch(Switch):
         if not title:
             if main.appear(AUTO_SEARCH_TITLE2, offset=(20, 20)):
                 title = AUTO_SEARCH_TITLE2
+        # [JP] Hard mode's dialog renders this title against a slightly different
+        # background than Normal mode, dropping both templates above below threshold
+        if not title:
+            if main.appear(AUTO_SEARCH_TITLE_HARD, offset=(20, 20)):
+                title = AUTO_SEARCH_TITLE_HARD
         if not title:
             if main.appear(AUTO_SEARCH_TITLE3, offset=(20, 20)):
                 title = AUTO_SEARCH_TITLE3
