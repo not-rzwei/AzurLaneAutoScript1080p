@@ -119,6 +119,23 @@ class EmulatorInstanceBase:
 
         return None
 
+    @cached_property
+    def MuMuPlayer12_engine_version(self):
+        """
+        MuMu Player 15 can run instances on either the 12 or 15 android engine side by side,
+        the two share the same instance index but are different VMs.
+        `MuMuManager.exe control` requires an explicit engine version to disambiguate them,
+        parsed from the instance name, such as `MuMuPlayerGlobal-15.0-1` -> `15`.
+
+        Returns:
+            str: '12', '15', or 'auto' if the engine version can't be determined from the name.
+        """
+        res = re.search(r'-(\d+)\.\d+-\d+$', self.name)
+        if res:
+            return res.group(1)
+
+        return 'auto'
+
     def mumu_vms_config(self, file):
         """
         Args:

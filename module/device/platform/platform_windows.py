@@ -1,4 +1,5 @@
 import ctypes
+import json
 import re
 import subprocess
 
@@ -23,10 +24,6 @@ def get_focused_window():
 
 def set_focus_window(hwnd):
     ctypes.windll.user32.SetForegroundWindow(hwnd)
-
-
-def minimize_window(hwnd):
-    ctypes.windll.user32.ShowWindow(hwnd, 6)
 
 
 def get_window_title(hwnd):
@@ -92,14 +89,19 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # NemuPlayer.exe -m nemu-12.0-x64-default
             self.execute(f'"{exe}" -m {instance.name}')
         elif instance == Emulator.MuMuPlayer12:
-            # MuMuManager.exe api -v 0 launch_player
+            # MuMuManager.exe control --vmindex 0 --version 15 launch
             # Launch via MuMuManager instead of MuMuPlayer.exe/MuMuNxMain.exe.
             # MuMuNxMain.exe is a GUI singleton, if two instances get launched at the same time,
             # the second launch request is handed over to a MuMuNxMain.exe that is still initializing
             # and gets silently dropped, while MuMuManager queues requests in backend service.
+            # `control` (instead of the legacy `api`) is required to specify --version,
+            # since MuMu 15 can have 12 and 15 engine instances sharing the same index.
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'Cannot get MuMu instance index from name {instance.name}')
-            self.execute(f'"{Emulator.single_to_console(exe)}" api -v {instance.MuMuPlayer12_id} launch_player')
+            self.execute(
+                f'"{Emulator.single_to_console(exe)}" control '
+                f'--vmindex {instance.MuMuPlayer12_id} --version {instance.MuMuPlayer12_engine_version} launch'
+            )
         elif instance == Emulator.LDPlayer14 or instance == Emulator.LDPlayer9:
             # ldconsole.exe launch --index 0 --mini
             # LDPlayer above 9 has `--mini` to start as minimized window, `--hide` to start with no frontend window
@@ -156,10 +158,20 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                 rf')'
             )
         elif instance == Emulator.MuMuPlayer12:
-            # MuMuManager.exe api -v 1 shutdown_player
+            # MuMuManager.exe control --vmindex 1 --version 15 shutdown
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'Cannot get MuMu instance index from name {instance.name}')
-            self.execute(f'"{Emulator.single_to_console(exe)}" api -v {instance.MuMuPlayer12_id} shutdown_player')
+            if not self._mumu12_is_running(instance):
+                # On MuMu 15, sending `shutdown` immediately before `launch` (as emulator_start()
+                # always does, even on a cold start where nothing is running) races with the
+                # backend service and can silently cancel the following launch, leaving the
+                # instance never starting at all. Skip the no-op shutdown entirely instead.
+                logger.info('MuMu instance is already stopped, skip shutdown')
+                return
+            self.execute(
+                f'"{Emulator.single_to_console(exe)}" control '
+                f'--vmindex {instance.MuMuPlayer12_id} --version {instance.MuMuPlayer12_engine_version} shutdown'
+            )
         elif instance == Emulator.LDPlayerFamily:
             # ldconsole.exe quit --index 0
             self.execute(f'"{Emulator.single_to_console(exe)}" quit --index {instance.LDPlayer_id}')
@@ -183,6 +195,26 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             self.execute(f'"{Emulator.single_to_console(exe)}" stop -n {instance.name}')
         else:
             raise EmulatorUnknown(f'Cannot stop an unknown emulator instance: {instance}')
+
+    @staticmethod
+    def _mumu12_is_running(instance: EmulatorInstance) -> bool:
+        """
+        Query MuMuManager directly (not ALAS's own adb connection state) for whether
+        this instance's backend process is currently up.
+
+        Returns:
+            bool: If the MuMu instance is currently running.
+                Assumes running (safer, preserves old behavior) if the query itself fails.
+        """
+        command = f'"{Emulator.single_to_console(instance.emulator.path)}" info -v {instance.MuMuPlayer12_id}'
+        logger.info(f'Execute: {command}')
+        try:
+            output = subprocess.check_output(command, timeout=10).decode(errors='ignore')
+            info = json.loads(output)
+            return bool(info.get('is_process_started', False))
+        except Exception as e:
+            logger.warning(f'Failed to query MuMu instance running state: {e}')
+            return True
 
     def _emulator_function_wrapper(self, func: callable):
         """
@@ -301,15 +333,25 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # All check passed
             break
 
-        if new_window != 0 and new_window != current_window:
-            logger.info(f'Minimize new window: {new_window}')
-            minimize_window(new_window)
         if current_window:
             logger.info(f'De-flash current window: {current_window}')
             flash_window(current_window, flash=False)
         if new_window:
             logger.info(f'Flash new window: {new_window}')
             flash_window(new_window, flash=True)
+
+        instance = self.emulator_instance
+        if instance == Emulator.MuMuPlayer12:
+            # `control ... launch` starts the backend via RPC without attaching a window.
+            # MuMu 15 auto-closes such windowless/unattended instances shortly after boot,
+            # so a window must be explicitly shown once it's online to keep it alive.
+            if instance.MuMuPlayer12_id is None:
+                logger.warning(f'Cannot get MuMu instance index from name {instance.name}')
+            self.execute(
+                f'"{Emulator.single_to_console(instance.emulator.path)}" control '
+                f'--vmindex {instance.MuMuPlayer12_id} --version {instance.MuMuPlayer12_engine_version} show_window'
+            )
+
         logger.info('Emulator start completed')
         return True
 

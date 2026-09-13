@@ -194,14 +194,25 @@ class Emulator(EmulatorBase):
             str: serial such as `127.0.0.1:5555`
         """
         regex = re.compile('<*?hostport="(.*?)".*?guestport="5555"/>')
+        # MuMu 15 lists multiple candidate forwarding entries for the same guestport
+        # (ADB_PORT, ADB_PORT_EX, ADB_PORT_OLD), so picking whichever line matches
+        # first is order-dependent and unreliable. Prefer the one explicitly named
+        # ADB_PORT, falling back to the first match for other emulators/vbox formats
+        # that don't use this naming and only ever have one candidate anyway.
+        preferred_regex = re.compile('<*?name="ADB_PORT" .*?hostport="(.*?)".*?guestport="5555"/>')
         try:
             with open(file, 'r', encoding='utf-8', errors='ignore') as f:
+                fallback = ''
                 for line in f.readlines():
                     # <Forwarding name="port2" proto="1" hostip="127.0.0.1" hostport="62026" guestport="5555"/>
-                    res = regex.search(line)
+                    res = preferred_regex.search(line)
                     if res:
                         return f'127.0.0.1:{res.group(1)}'
-            return ''
+                    if not fallback:
+                        res = regex.search(line)
+                        if res:
+                            fallback = f'127.0.0.1:{res.group(1)}'
+            return fallback
         except FileNotFoundError:
             return ''
 
@@ -302,15 +313,24 @@ class Emulator(EmulatorBase):
         elif self == Emulator.MuMuPlayer12:
             # vms/MuMuPlayer-12.0-0
             for folder in self.list_folder('../vms', is_dir=True):
-                for file in iter_folder(folder, ext='.nemu'):
+                name = os.path.basename(folder)
+                # An in-place MuMu version upgrade (e.g. 12.0 -> 15.0) renames the
+                # instance folder but may leave the previous version's `.nemu` file
+                # behind alongside the current one, so more than one may match here.
+                # Prefer the file whose name matches the current folder name, and
+                # only yield one instance per folder to avoid duplicates.
+                files = list(iter_folder(folder, ext='.nemu'))
+                preferred = [f for f in files if os.path.splitext(os.path.basename(f))[0] == name]
+                files = preferred if preferred else files
+                for file in files:
                     serial = Emulator.vbox_file_to_serial(file)
-                    name = os.path.basename(folder)
                     if serial:
                         yield EmulatorInstance(
                             serial=serial,
                             name=name,
                             path=self.path,
                         )
+                        break
                     # Fix for MuMu12 v4.0.4, default instance of which has no forward record in vbox config
                     else:
                         instance = EmulatorInstance(
@@ -321,6 +341,7 @@ class Emulator(EmulatorBase):
                         if instance.MuMuPlayer12_id:
                             instance.serial = f'127.0.0.1:{16384 + 32 * instance.MuMuPlayer12_id}'
                             yield instance
+                            break
         elif self == Emulator.MEmuPlayer:
             # ./MemuHyperv VMs/{name}/{name}.memu
             for folder in self.list_folder('./MemuHyperv VMs', is_dir=True):

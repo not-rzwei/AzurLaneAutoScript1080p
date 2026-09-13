@@ -568,7 +568,14 @@ class NemuIpc(Platform):
         if not self.is_mumu_over_version_400:
             return super().check_mumu_app_keep_alive()
 
-        # Try existing settings first
+        # Resolve via the emulator instance first, its real name (e.g. renamed
+        # MuMuPlayerGlobal-15.0-X instances) gives the correct path directly.
+        if self.emulator_instance is not None:
+            file = self.emulator_instance.mumu_vms_config('customer_config.json')
+            return self.check_mumu_app_keep_alive_400(file)
+
+        # Fallback: emulator_instance isn't resolvable, guess from serial + EmulatorInfo_path.
+        # Only correct for the legacy MuMuPlayer-12.0-{index} naming.
         if self.config.EmulatorInfo_path:
             index = NemuIpcImpl.serial_to_id(self.serial)
             if index is not None:
@@ -577,15 +584,7 @@ class NemuIpc(Platform):
                 if self.check_mumu_app_keep_alive_400(file):
                     return True
 
-        # Search emulator instance
-        if self.emulator_instance is None:
-            logger.warning('Failed to check check_mumu_app_keep_alive as emulator_instance is None')
-            return False
-        name = self.emulator_instance.name
-        file = self.emulator_instance.mumu_vms_config('customer_config.json')
-        if self.check_mumu_app_keep_alive_400(file):
-            return True
-
+        logger.warning('Failed to check check_mumu_app_keep_alive as emulator_instance is None')
         return False
 
     def nemu_ipc_release(self):
