@@ -43,14 +43,16 @@ class SwitchAutoSearch(Switch):
         if not title:
             if main.appear(AUTO_SEARCH_TITLE2, offset=(20, 20)):
                 title = AUTO_SEARCH_TITLE2
-        # [JP] Hard mode's dialog renders this title against a slightly different
-        # background than Normal mode, dropping both templates above below threshold
-        if not title:
-            if main.appear(AUTO_SEARCH_TITLE_HARD, offset=(20, 20)):
-                title = AUTO_SEARCH_TITLE_HARD
+        # [JP] Some dialogs render this title against a slightly different background,
+        # dropping both templates above below threshold
         if not title:
             if main.appear(AUTO_SEARCH_TITLE3, offset=(20, 20)):
                 title = AUTO_SEARCH_TITLE3
+        # [JP] Some MAP_PREPARATION dialogs (observed on a Hard mode stage) render this
+        # title against yet another slightly different background
+        if not title:
+            if main.appear(AUTO_SEARCH_TITLE4, offset=(20, 20)):
+                title = AUTO_SEARCH_TITLE4
         if not title:
             return 'unknown'
         # find check area to the right of title
