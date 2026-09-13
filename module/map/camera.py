@@ -256,7 +256,9 @@ class Camera(MapOperation):
             wait_swipe: True to wait camera reaching grid center
             allow_error: True to exit when encountered detection error
         """
-        error_confirm = Timer(5, count=10).start()
+        # Longer than default 5s/10 checks, first combat entered right after
+        # an ALAS/emulator restart can take noticeably longer to load than usual.
+        error_confirm = Timer(15, count=20).start()
         swipe_wait_timeout = Timer(0.35, count=1).start()
         # Assume swiped first
         swiped = True

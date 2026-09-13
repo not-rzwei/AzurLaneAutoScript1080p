@@ -434,6 +434,10 @@ class Uiautomator2(Connection):
             return (width, height)
         if width == 720 and height == 1280:
             return (width, height)
+        # Screenshots get downscaled to 1280x720 regardless of device resolution,
+        # so any 16:9 (or 9:16) resolution works too, such as 1920x1080.
+        if abs(width / height - 16 / 9) < 0.01 or abs(width / height - 9 / 16) < 0.01:
+            return (width, height)
 
         logger.critical(f'Resolution not supported: {width}x{height}')
         logger.critical('Please set emulator resolution to 1280x720')
