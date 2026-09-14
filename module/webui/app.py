@@ -1444,6 +1444,33 @@ def debug():
     AlasGUI().run()
 
 
+_last_gui_status = None
+
+
+def push_gui_status():
+    """
+    Push every known config's ProcessManager state to Electron over stdout (already
+    piped and listened to via PyShell for detecting webui startup), but only when
+    something actually changed - avoids periodic disk I/O or a REST API for a value
+    that rarely changes, and updates the tray instantly instead of on a poll delay.
+    State values match ProcessManager.state: 1 alive, 2 stopped, 3 error, 4 updating.
+    """
+    global _last_gui_status
+    status = {}
+    for name, proc in ProcessManager._processes.items():
+        state = proc.state
+        entry = {'state': state}
+        if state == 3:
+            entry['reason'] = proc.last_log_line
+        status[name] = entry
+
+    if status != _last_gui_status:
+        _last_gui_status = status
+        # Plain print(), not logger: logger's console handler is removed under
+        # Electron (see gui.py), but print() still reaches the piped stdout PyShell reads.
+        print(f'ALAS_GUI_STATUS::{json.dumps(status)}', flush=True)
+
+
 def startup():
     State.init()
     lang.reload()
@@ -1451,6 +1478,7 @@ def startup():
     if updater.delay > 0:
         task_handler.add(updater.check_update, updater.delay)
     task_handler.add(updater.schedule_update(), 86400)
+    task_handler.add(push_gui_status, 2)
     task_handler.start()
     if State.deploy_config.DiscordRichPresence:
         init_discord_rpc()

@@ -1,4 +1,4 @@
-import {app, Menu, Tray, BrowserWindow, ipcMain, globalShortcut} from 'electron';
+import {app, Menu, Tray, BrowserWindow, ipcMain, globalShortcut, Notification, nativeImage} from 'electron';
 import {URL} from 'url';
 import {PyShell} from '/@/pyshell';
 import {webuiArgs, webuiPath, dpiScaling, autoStart} from '/@/config';
@@ -13,6 +13,8 @@ if (!isSingleInstance) {
 }
 
 app.disableHardwareAcceleration();
+// Needed on Windows so tray status notifications show "Alas", not "Electron".
+app.setAppUserModelId('Alas');
 
 // Install "Vue.js devtools"
 if (import.meta.env.MODE === 'development') {
@@ -36,12 +38,76 @@ alas.end(function () {
 
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 
 // Window state tracking for shrink functionality
 let isShrunk = false;
 let positionToRestore: { x: number; y: number } | null = null;
 let shrinkPosition: { x: number; y: number } | null = null;
 let originalSize: { width: number; height: number } | null = null;
+
+// Tray status indicator: module/webui/app.py pushes a status line over stdout
+// (the same pipe PyShell already reads to detect webui startup) whenever a config's
+// ProcessManager state changes (1 running, 2 stopped, 3 error, 4 updating) - no
+// REST API and no polling, so the tray only does work when something actually changed.
+const GUI_STATUS_PREFIX = 'ALAS_GUI_STATUS::';
+
+interface GuiStatusEntry {
+  state: number;
+  reason?: string;
+}
+
+type GuiStatus = Record<string, GuiStatusEntry>;
+
+// Tracks whether each config was already in error last update, so a notification
+// only fires once per new crash, not repeatedly while it stays crashed.
+const previousErrorState: Record<string, boolean> = {};
+
+function stateLabel(state: number): string {
+  switch (state) {
+    case 1:
+      return 'Running';
+    case 2:
+      return 'Stopped';
+    case 3:
+      return 'Error';
+    case 4:
+      return 'Updating';
+    default:
+      return 'Unknown';
+  }
+}
+
+function updateTrayStatus(status: GuiStatus) {
+  if (!tray) return;
+  const entries = Object.entries(status);
+
+  let level: 'green' | 'gray' | 'red' = 'gray';
+  if (entries.some(([, e]) => e.state === 3)) {
+    level = 'red';
+  } else if (entries.some(([, e]) => e.state === 1)) {
+    level = 'green';
+  }
+  // Multi-resolution .ico (like buildResources/icon.ico for the window/taskbar icon):
+  // Windows reads the exact pixel size it needs natively instead of scaling one bitmap.
+  tray.setImage(nativeImage.createFromPath(path.join(__dirname, `icon-${level}.ico`)));
+
+  const tooltip = entries.length
+    ? 'Alas\n' + entries.map(([name, e]) => `${name}: ${stateLabel(e.state)}`).join('\n')
+    : 'Alas';
+  tray.setToolTip(tooltip);
+
+  for (const [name, e] of entries) {
+    const isError = e.state === 3;
+    if (isError && !previousErrorState[name]) {
+      new Notification({
+        title: `Alas <${name}> stopped with an error`,
+        body: e.reason || 'Check the logs for details.',
+      }).show();
+    }
+    previousErrorState[name] = isError;
+  }
+}
 
 const createWindow = async () => {
   mainWindow = new BrowserWindow({
@@ -156,7 +222,7 @@ const createWindow = async () => {
     }
   });
   // Tray
-  const tray = new Tray(path.join(__dirname, 'icon.png'));
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'icon-gray.ico')));
   const contextMenu = Menu.buildFromTemplate([
     {
       label: 'Show',
@@ -185,8 +251,9 @@ const createWindow = async () => {
     mainWindow?.isVisible() ? mainWindow?.hide() : mainWindow?.show();
   });
   tray.on('right-click', () => {
-    tray.popUpContextMenu(contextMenu);
+    tray?.popUpContextMenu(contextMenu);
   });
+
 };
 
 
@@ -222,6 +289,20 @@ alas.on('stderr', function (message: string) {
   if (message.includes('Application startup complete') || message.includes('bind on address')) {
     alas.removeAllListeners('stderr');
     loadURL();
+  }
+});
+
+
+alas.on('message', function (message: string) {
+  // module/webui/app.py's push_gui_status() prints this line only when a config's
+  // state actually changes, so this fires on real transitions, not on a timer.
+  if (typeof message === 'string' && message.startsWith(GUI_STATUS_PREFIX)) {
+    try {
+      const status: GuiStatus = JSON.parse(message.slice(GUI_STATUS_PREFIX.length));
+      updateTrayStatus(status);
+    } catch (e) {
+      console.error('Failed to parse gui status:', e);
+    }
   }
 });
 
