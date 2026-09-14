@@ -5,6 +5,7 @@ from module.base.utils import save_image
 from module.combat.assets import *
 from module.logger import logger
 from module.reward.assets import *
+from module.ui.assets import MISSION_CHECK
 from module.ui.navbar import Navbar
 from module.ui.page import page_main, page_mission, page_reward
 from module.ui.ui import UI
@@ -55,127 +56,137 @@ class Reward(UI):
         logger.info('Reward receive end')
         return True
 
-    def _reward_get_state(self):
-        if self.appear(MISSION_MULTI, offset=(20, 20)):
-            return MISSION_MULTI
-        if self.match_template_color(MISSION_SINGLE, offset=(50, 200)):
-            return MISSION_SINGLE
-        if self.appear(MISSION_EMPTY, offset=(20, 20)):
-            return MISSION_EMPTY
-        if self.appear(MISSION_UNFINISH, offset=(50, 200)):
-            return MISSION_UNFINISH
-        return None
-
-    def _reward_mission_claim_click(self):
+    def _reward_mission_collect(self, weekly=False, interval=1):
         """
+        Streamline handling of mission rewards for both 'all' and 'weekly'
+        pages, including the weekly page's separate phase-accumulation reward
+        widget and ship rewards.
+
+        Restored from a flat, patient loop (exit only after a period of no
+        further progress, or an absolute timeout) that worked reliably before
+        an upstream refactor (Oct 2025) replaced it with a strict step-by-step
+        state machine. That state machine bailed out the moment a single
+        screenshot didn't show the exact expected next state - which happens
+        whenever a popup, ship reward, or phase reward takes even one extra
+        frame to render - leaving genuinely-completed rewards uncollected, or
+        (worse) re-clicking the same button with no pacing once its own exit
+        condition fired prematurely, tripping ALAS's too-many-clicks guard.
+
+        Args:
+            weekly (bool): True when collecting on the weekly page, which has a
+                separate phase-accumulation reward widget.
+            interval (int, float): Interval for mission claim clicks. Weekly
+                benefits from a shorter interval to avoid a premature exit.
+
         Returns:
-            bool: If claimed
-
-        Pages:
-            in: page_mission, MISSION_MULTI or MISSION_SINGLE
-            out: unknown popup
+            bool: If at least one reward was claimed.
         """
-        clicked = False
-        click_interval = Timer(1, count=2)
+        self.interval_clear([GET_ITEMS_1, GET_ITEMS_2, MISSION_MULTI, MISSION_SINGLE, GET_SHIP])
+
+        exit_timer = Timer(2).start()
+        click_timer = Timer(interval)
+        timeout = Timer(10).start()
+        clicked_mission = False
+        reward = False
+
         for _ in self.loop():
-            if clicked:
-                return clicked
-            if click_interval.reached():
-                if self.appear_then_click(MISSION_MULTI, offset=(20, 20)):
-                    click_interval.reset()
-                    clicked = True
+            for button in [GET_ITEMS_1, GET_ITEMS_2]:
+                if self.appear_then_click(button, offset=(30, 30), interval=interval):
+                    exit_timer.reset()
+                    timeout.reset()
+                    reward = True
+                    # MISSION_SINGLE/PHASE -> GET_ITEMS_* means one reward received
+                    if clicked_mission:
+                        logger.info('Got items from mission')
+                        self.device.click_record_clear()
+                        clicked_mission = False
                     continue
-                if self.match_template_color(MISSION_SINGLE, offset=(50, 200)):
-                    self.device.click(MISSION_SINGLE)
-                    click_interval.reset()
-                    clicked = True
-                    continue
-                if self.appear(MISSION_UNFINISH, offset=(50, 200)):
-                    return clicked
 
-    def _reward_mission_claim_receive(self):
-        """
-        Returns:
-            Button | str: Button object or state string
-
-        Pages:
-            in: unknown popup
-            out: page_mission
-        """
-        logger.info('Mission claim receive')
-        timeout = Timer(2, count=6).start()
-        for _ in self.loop():
-            if self.ui_page_appear(page_mission):
-                state = self._reward_get_state()
-                if state:
-                    return state
-                if timeout.reached():
-                    logger.warning('Wait mission receive timeout')
-                    return 'timeout'
-            else:
+            # Weekly page's separate point-accumulation phase reward (週次任務報酬),
+            # not part of the per-task row list below. Can be claimed multiple
+            # times in a row if enough points are banked. The box still shows the
+            # same "受取/RECEIVE AWARD" text even when not yet actually claimable
+            # (bar not full) - only its color changes, vivid blue when claimable vs
+            # a desaturated gray otherwise (confirmed via live screenshot) - so use
+            # match_template_color (shape then color) instead of plain appear(),
+            # or blind-clicking the not-yet-ready box trips the too-many-click guard.
+            if weekly and click_timer.reached() \
+                    and self.match_template_color(MISSION_WEEKLY_PHASE, offset=(20, 20)):
+                self.device.click(MISSION_WEEKLY_PHASE)
+                clicked_mission = True
+                exit_timer.reset()
+                click_timer.reset()
                 timeout.reset()
+                continue
 
-            # click
-            if self.appear_then_click(GET_ITEMS_1, offset=(30, 30), interval=1):
-                continue
-            if self.appear_then_click(GET_ITEMS_2, offset=(30, 30), interval=1):
-                continue
-            if self.appear_then_click(GET_SHIP, interval=1):
-                continue
+            if not weekly and self.appear(MISSION_UNFINISH, offset=(50, 200)):
+                logger.info('Mission is not finished')
+                break
+
+            for button in [MISSION_MULTI, MISSION_SINGLE]:
+                if not click_timer.reached():
+                    continue
+                # The row list's own "確認/MOVE FORWARD" (unfinished) button, and
+                # on the weekly page the phase box above it too, share the exact
+                # same diamond shape as this "受取/RECEIVE AWARD" (claimable)
+                # button - only the color differs (vivid blue vs desaturated
+                # gray). A big offset scan (needed since a row's claim button
+                # isn't at a fixed position) can't tell them apart by shape alone,
+                # so require the matching color too on weekly, where this
+                # ambiguity actually occurs (confirmed live: shape-only matching
+                # landed on both the unfinished row and the not-yet-ready phase
+                # box, blind-clicking either into a too-many-click crash).
+                matched = self.match_template_color(button, offset=(20, 200), interval=interval, similarity=0.7) \
+                    if weekly else self.appear(button, offset=(20, 200), interval=interval, similarity=0.7)
+                if matched:
+                    self.device.click(button)
+                    clicked_mission = True
+                    exit_timer.reset()
+                    click_timer.reset()
+                    timeout.reset()
+                    continue
+
+            # Only look for a ship reward popup when we're not plainly on the
+            # normal mission list (MISSION_CHECK == page_mission's own check
+            # button), avoiding a wasted/false check on every single iteration.
+            if not self.appear(MISSION_CHECK):
+                if self.appear_then_click(GET_SHIP, interval=interval):
+                    exit_timer.reset()
+                    click_timer.reset()
+                    timeout.reset()
+                    continue
+
             if self.handle_mission_popup_ack():
+                exit_timer.reset()
+                click_timer.reset()
+                timeout.reset()
                 continue
+
             if self.handle_vote_popup():
+                exit_timer.reset()
+                click_timer.reset()
+                timeout.reset()
                 continue
             if self.handle_story_skip():
+                exit_timer.reset()
+                click_timer.reset()
+                timeout.reset()
                 continue
+
             if self.handle_popup_confirm('MISSION_REWARD'):
+                exit_timer.reset()
+                click_timer.reset()
+                timeout.reset()
                 continue
 
-    def _reward_wait_mission_list(self):
-        """
-        Wait until mission list fully loaded
-
-        Pages:
-            in: page_mission
-            out: page_mission, any mission state, or timeout
-        """
-        timeout = Timer(1, count=2).start()
-        for _ in self.loop():
-            state = self._reward_get_state()
-            if state:
-                return state
-            if timeout.reached():
-                return 'timeout'
-
-    def _reward_mission_collect(self):
-        """
-        Streamline handling of mission rewards for
-        both 'all' and 'weekly' pages
-
-        Returns:
-            Button | str: Last state, Button object or state string
-        """
-        state = self._reward_wait_mission_list()
-        while 1:
-            logger.attr('MissionState', state)
-            self.device.stuck_record_clear()
-            self.device.click_record_clear()
-            if state == 'timeout':
-                logger.warning('Reward wait mission list timeout')
-                return state
-            if state in [MISSION_EMPTY, MISSION_UNFINISH]:
-                logger.info('Mission collect finished')
+            # End
+            if reward and exit_timer.reached():
                 break
-            elif state in [MISSION_MULTI, MISSION_SINGLE]:
-                # Clear any existing interval for the following assets
-                self.interval_clear([GET_ITEMS_1, GET_ITEMS_2, MISSION_MULTI, MISSION_SINGLE, GET_SHIP])
-                self._reward_mission_claim_click()
-                state = self._reward_mission_claim_receive()
-                continue
-            else:
-                logger.warning('Empty mission state, mission collect finished')
+            if timeout.reached():
+                logger.warning('Wait get items timeout.')
+                break
 
-        return state
+        return reward
 
     def _reward_mission_all(self):
         """
@@ -185,6 +196,12 @@ class Reward(UI):
             bool, if handled
         """
         self.reward_side_navbar_ensure(upper=1)
+
+        if not self.appear(MISSION_MULTI, offset=(20, 200)) \
+                and not self.match_template_color(MISSION_SINGLE, offset=(20, 200)):
+            logger.info('No MISSION_MULTI or MISSION_SINGLE')
+            return False
+
         return self._reward_mission_collect()
 
     def _reward_mission_weekly(self):
@@ -199,7 +216,8 @@ class Reward(UI):
             return False
 
         self.reward_side_navbar_ensure(upper=5)
-        return self._reward_mission_collect()
+        # Shorter interval than the all/daily page to avoid a premature exit
+        return self._reward_mission_collect(weekly=True, interval=0.2)
 
     def reward_mission_notice(self):
         """
