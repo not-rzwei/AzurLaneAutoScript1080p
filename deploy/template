@@ -28,6 +28,11 @@ Deploy:
     # [Developer] Use true, if you modified the code
     # [Other] Use false
     KeepLocalChanges: false
+    # Replace toolkit/webapp/resources/app.asar (the webui's Electron shell) with the
+    # official pre-built version at startup. Independent of AutoUpdate above.
+    # [In most cases] Use true
+    # [If you built your own webapp/Electron app] Use false to keep your build
+    AppAutoUpdate: true
 
   Python:
     # Filepath of python executable `python.exe`

@@ -1,7 +1,7 @@
 import {app, Menu, Tray, BrowserWindow, ipcMain, globalShortcut} from 'electron';
 import {URL} from 'url';
 import {PyShell} from '/@/pyshell';
-import {webuiArgs, webuiPath, dpiScaling} from '/@/config';
+import {webuiArgs, webuiPath, dpiScaling, autoStart} from '/@/config';
 
 const path = require('path');
 
@@ -29,8 +29,8 @@ if (import.meta.env.MODE === 'development') {
 /**
  * Load deploy settings and start Alas web server.
  */
-let alas = new PyShell(webuiPath, webuiArgs);
-alas.end(function (err: string) {
+const alas = new PyShell(webuiPath, webuiArgs);
+alas.end(function () {
   // if (err) throw err;
 });
 
@@ -65,7 +65,11 @@ const createWindow = async () => {
    * @see https://github.com/electron/electron/issues/25012
    */
   mainWindow.on('ready-to-show', () => {
-    mainWindow?.show();
+    // Webui.Run auto-starts configs on launch; start minimized to tray instead
+    // of popping the window up every time. Use the tray icon to show it.
+    if (!autoStart) {
+      mainWindow?.show();
+    }
 
     // Hide menu
     const {Menu} = require('electron');
@@ -80,21 +84,21 @@ const createWindow = async () => {
     // Dev tools
     globalShortcut.register('Ctrl+Shift+I', function () {
       if (mainWindow?.webContents.isDevToolsOpened()) {
-        mainWindow?.webContents.closeDevTools()
+        mainWindow?.webContents.closeDevTools();
       } else {
-        mainWindow?.webContents.openDevTools()
+        mainWindow?.webContents.openDevTools();
       }
     });
     // Refresh
     globalShortcut.register('Ctrl+R', function () {
-      mainWindow?.reload()
+      mainWindow?.reload();
     });
     globalShortcut.register('Ctrl+Shift+R', function () {
-      mainWindow?.reload()
+      mainWindow?.reload();
     });
   });
   mainWindow.on('blur', function () {
-    globalShortcut.unregisterAll()
+    globalShortcut.unregisterAll();
   });
 
   // Minimize, maximize, close window.
@@ -158,30 +162,30 @@ const createWindow = async () => {
       label: 'Show',
       click: function () {
         mainWindow?.show();
-      }
+      },
     },
     {
       label: 'Hide',
       click: function () {
         mainWindow?.hide();
-      }
+      },
     },
     {
       label: 'Exit',
       click: function () {
         alas.kill(function () {
           mainWindow?.close();
-        })
-      }
-    }
+        });
+      },
+    },
   ]);
   tray.setToolTip('Alas');
   tray.setContextMenu(contextMenu);
   tray.on('click', () => {
-    mainWindow?.isVisible() ? mainWindow?.hide() : mainWindow?.show()
+    mainWindow?.isVisible() ? mainWindow?.hide() : mainWindow?.show();
   });
   tray.on('right-click', () => {
-    tray.popUpContextMenu(contextMenu)
+    tray.popUpContextMenu(contextMenu);
   });
 };
 
@@ -217,7 +221,7 @@ alas.on('stderr', function (message: string) {
    */
   if (message.includes('Application startup complete') || message.includes('bind on address')) {
     alas.removeAllListeners('stderr');
-    loadURL()
+    loadURL();
   }
 });
 

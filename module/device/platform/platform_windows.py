@@ -8,6 +8,7 @@ import psutil
 from deploy.Windows.utils import DataProcessInfo
 from module.base.decorator import run_once
 from module.base.timer import Timer
+from module.config.utils import read_file, write_file
 from module.device.connection import AdbDeviceWithStatus
 from module.device.platform.platform_base import PlatformBase
 from module.device.platform.emulator_windows import Emulator, EmulatorInstance, EmulatorManager
@@ -37,6 +38,25 @@ def get_window_title(hwnd):
 
 def flash_window(hwnd, flash=True):
     ctypes.windll.user32.FlashWindow(hwnd, flash)
+
+
+class RECT(ctypes.Structure):
+    _fields_ = [
+        ('left', ctypes.c_long),
+        ('top', ctypes.c_long),
+        ('right', ctypes.c_long),
+        ('bottom', ctypes.c_long),
+    ]
+
+
+def get_window_rect(hwnd):
+    """
+    Returns:
+        tuple[int, int, int, int]: x, y, width, height
+    """
+    rect = RECT()
+    ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect))
+    return rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top
 
 
 class PlatformWindows(PlatformBase, EmulatorManager):
@@ -168,6 +188,8 @@ class PlatformWindows(PlatformBase, EmulatorManager):
                 # instance never starting at all. Skip the no-op shutdown entirely instead.
                 logger.info('MuMu instance is already stopped, skip shutdown')
                 return
+            # Remember window position/size before shutting down, to restore on next launch.
+            self._mumu12_save_window_state(instance)
             self.execute(
                 f'"{Emulator.single_to_console(exe)}" control '
                 f'--vmindex {instance.MuMuPlayer12_id} --version {instance.MuMuPlayer12_engine_version} shutdown'
@@ -197,24 +219,99 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             raise EmulatorUnknown(f'Cannot stop an unknown emulator instance: {instance}')
 
     @staticmethod
-    def _mumu12_is_running(instance: EmulatorInstance) -> bool:
+    def _mumu12_info(instance: EmulatorInstance) -> dict:
         """
-        Query MuMuManager directly (not ALAS's own adb connection state) for whether
-        this instance's backend process is currently up.
+        Query MuMuManager directly (not ALAS's own adb connection state) for this
+        instance's live status, such as `is_process_started` and its `main_wnd` handle.
 
         Returns:
-            bool: If the MuMu instance is currently running.
-                Assumes running (safer, preserves old behavior) if the query itself fails.
+            dict: Parsed `MuMuManager.exe info` output, or {} if the query fails.
         """
         command = f'"{Emulator.single_to_console(instance.emulator.path)}" info -v {instance.MuMuPlayer12_id}'
         logger.info(f'Execute: {command}')
         try:
             output = subprocess.check_output(command, timeout=10).decode(errors='ignore')
-            info = json.loads(output)
-            return bool(info.get('is_process_started', False))
+            return json.loads(output)
         except Exception as e:
-            logger.warning(f'Failed to query MuMu instance running state: {e}')
+            logger.warning(f'Failed to query MuMu instance info: {e}')
+            return {}
+
+    @classmethod
+    def _mumu12_is_running(cls, instance: EmulatorInstance) -> bool:
+        """
+        Returns:
+            bool: If the MuMu instance is currently running.
+                Assumes running (safer, preserves old behavior) if the query itself fails.
+        """
+        info = cls._mumu12_info(instance)
+        if not info:
             return True
+        return bool(info.get('is_process_started', False))
+
+    @staticmethod
+    def _mumu12_window_state_file(instance: EmulatorInstance) -> str:
+        return f'./config/{instance.name}_window.json'
+
+    def _mumu12_save_window_state(self, instance: EmulatorInstance):
+        """
+        Remember the emulator window's current position and size, so it can be
+        restored to the same place on the next launch.
+        """
+        main_wnd = self._mumu12_info(instance).get('main_wnd')
+        if not main_wnd:
+            return
+        try:
+            x, y, w, h = get_window_rect(int(main_wnd, 16))
+        except Exception as e:
+            logger.warning(f'Failed to get MuMu window rect: {e}')
+            return
+        if w <= 0 or h <= 0:
+            return
+        write_file(self._mumu12_window_state_file(instance), {'x': x, 'y': y, 'w': w, 'h': h})
+
+    def _mumu12_restore_window_state(self, instance: EmulatorInstance):
+        """
+        Restore the emulator window to its last saved position and size, if any.
+
+        Uses SetWindowPos directly instead of MuMuManager's `layout_window`: the
+        latter silently ignores negative coordinates, which any monitor placed to
+        the left of (or above) the primary display needs. SWP_NOACTIVATE also means
+        this alone never steals focus, unlike the RPC command.
+        """
+        state = read_file(self._mumu12_window_state_file(instance))
+        if not state:
+            return
+        main_wnd = self._mumu12_info(instance).get('main_wnd')
+        if not main_wnd:
+            return
+        try:
+            hwnd = int(main_wnd, 16)
+            SWP_NOZORDER = 0x0004
+            SWP_NOACTIVATE = 0x0010
+            ctypes.windll.user32.SetWindowPos(
+                hwnd, 0, state['x'], state['y'], state['w'], state['h'], SWP_NOZORDER | SWP_NOACTIVATE
+            )
+        except Exception as e:
+            logger.warning(f'Failed to restore MuMu window position: {e}')
+
+    def save_emulator_window_state(self):
+        """
+        Opportunistically save the emulator window's current position/size.
+
+        `_emulator_stop()` only saves it when ALAS itself deliberately stops the
+        emulator, so a manual close of the emulator window (bypassing ALAS)
+        would otherwise leave the saved state stale. Call this after every task
+        instead of on a timer, so there's always a recent snapshot to fall back
+        on without polling on an unrelated schedule.
+
+        No-ops for non-MuMu emulators or when nothing is running.
+        """
+        instance = self.emulator_instance
+        if instance != Emulator.MuMuPlayer12:
+            return
+        if not self._mumu12_is_running(instance):
+            return
+        self._mumu12_save_window_state(instance)
 
     def _emulator_function_wrapper(self, func: callable):
         """
@@ -347,10 +444,23 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # so a window must be explicitly shown once it's online to keep it alive.
             if instance.MuMuPlayer12_id is None:
                 logger.warning(f'Cannot get MuMu instance index from name {instance.name}')
-            self.execute(
-                f'"{Emulator.single_to_console(instance.emulator.path)}" control '
-                f'--vmindex {instance.MuMuPlayer12_id} --version {instance.MuMuPlayer12_engine_version} show_window'
+            exe = Emulator.single_to_console(instance.emulator.path)
+            proc = self.execute(
+                f'"{exe}" control --vmindex {instance.MuMuPlayer12_id} '
+                f'--version {instance.MuMuPlayer12_engine_version} show_window'
             )
+            try:
+                proc.wait(timeout=5)
+            except Exception as e:
+                logger.warning(f'Failed to wait for MuMu show_window: {e}')
+            # Restore the emulator window to its last known position/size, if saved.
+            self._mumu12_restore_window_state(instance)
+
+            # `show_window` brings the emulator window to the front, stealing focus
+            # (and the cursor's active target) from whatever the user was using.
+            # Focus back to the window that was active before start.
+            if current_window:
+                set_focus_window(current_window)
 
         logger.info('Emulator start completed')
         return True

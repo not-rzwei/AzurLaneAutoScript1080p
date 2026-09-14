@@ -588,6 +588,11 @@ class AzurLaneAutoScript:
             logger.info(f'Scheduler: End task `{task}`')
             self.is_first_task = False
 
+            # Snapshot the emulator window's position/size after every task,
+            # in case it gets closed manually later without going through ALAS.
+            if hasattr(self.device, 'save_emulator_window_state'):
+                self.device.save_emulator_window_state()
+
             # Check failures
             failed = deep_get(self.failure_record, keys=task, default=0)
             failed = 0 if success else failed + 1

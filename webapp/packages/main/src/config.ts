@@ -15,3 +15,6 @@ export const webuiUrl = `http://127.0.0.1:${WebuiPort}`;
 export const webuiPath = 'gui.py';
 export const webuiArgs = ['--port', WebuiPort, '--electron'];
 export const dpiScaling = Boolean(config.Deploy.Webui.DpiScaling) || (config.Deploy.Webui.DpiScaling === undefined) ;
+// Webui.Run auto-starts configs on launch; when set, start minimized to tray
+// instead of popping the window up every time.
+export const autoStart = Boolean(config.Deploy.Webui.Run);

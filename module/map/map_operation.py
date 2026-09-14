@@ -240,7 +240,16 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                         break
                 else:
                     if hasattr(self, 'is_combat_loading') and self.is_combat_loading():
-                        logger.warning('Entered map with is_combat_loading appeared')
+                        # Game skipped straight into combat without ever showing the
+                        # interactive map. This happens regardless of whether the
+                        # auto-search/clear-mode toggle was correctly detected beforehand
+                        # (e.g. detection failing on a particular stage's rendering, or the
+                        # toggle simply being on already) - map_init()'s camera scan has no
+                        # way to recover from this, so route to the same battle-waiting
+                        # logic used for a confirmed auto search instead of the manual path.
+                        logger.warning('Entered map with is_combat_loading appeared, '
+                                       'treating as auto search')
+                        self.map_is_auto_search = True
                         break
                     if self.handle_in_map_with_enemy_searching():
                         # self.handle_map_after_combat_story()

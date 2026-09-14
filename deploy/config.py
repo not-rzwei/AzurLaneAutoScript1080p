@@ -18,6 +18,7 @@ class ConfigModel:
     SSLVerify: bool = False
     AutoUpdate: bool = True
     KeepLocalChanges: bool = False
+    AppAutoUpdate: bool = True
 
     # Python
     PythonExecutable: str = "./toolkit/python.exe"
