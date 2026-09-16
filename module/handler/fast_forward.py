@@ -53,6 +53,11 @@ class SwitchAutoSearch(Switch):
         if not title:
             if main.appear(AUTO_SEARCH_TITLE4, offset=(20, 20)):
                 title = AUTO_SEARCH_TITLE4
+        # [JP] Some event stage-entry dialogs render this title over a dark
+        # rounded-panel background, dropping all 4 templates above below threshold
+        if not title:
+            if main.appear(AUTO_SEARCH_TITLE5, offset=(20, 20)):
+                title = AUTO_SEARCH_TITLE5
         if not title:
             return 'unknown'
         # find check area to the right of title
