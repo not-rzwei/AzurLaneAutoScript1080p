@@ -204,10 +204,18 @@ class Reward(UI):
         """
         self.reward_side_navbar_ensure(upper=1)
 
-        if not self.appear(MISSION_MULTI, offset=(20, 200)) \
-                and not self.match_template_color(MISSION_SINGLE, offset=(20, 200)):
-            logger.info('No MISSION_MULTI or MISSION_SINGLE')
-            return False
+        # The mission list loads a moment after page arrive, and the first
+        # screenshot (taken right after navbar check) may show an empty list.
+        # Wait for the list to settle before deciding there's nothing to claim.
+        timeout = Timer(2, count=6).start()
+        while 1:
+            if self.appear(MISSION_MULTI, offset=(20, 200)) \
+                    or self.match_template_color(MISSION_SINGLE, offset=(20, 200)):
+                break
+            if timeout.reached():
+                logger.info('No MISSION_MULTI or MISSION_SINGLE')
+                return False
+            self.device.screenshot()
 
         return self._reward_mission_collect()
 
