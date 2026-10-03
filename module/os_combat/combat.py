@@ -229,6 +229,8 @@ class Combat(Combat_, MapEventHandler):
             in: is_combat_loading()
             out: combat status
         """
+        # Stay muted until the whole auto search ends, restored by audio_restore() at the end of os_auto_search_run
+        self.device.audio_mute()
         logger.info('Auto search combat loading')
         self.device.stuck_record_clear()
         self.device.click_record_clear()

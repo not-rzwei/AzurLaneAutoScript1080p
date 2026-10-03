@@ -647,6 +647,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StrategicSearchHandler):
                 else:
                     break
 
+        self.device.audio_restore()
         return finished_combat
 
     def clear_question(self, drop=None):

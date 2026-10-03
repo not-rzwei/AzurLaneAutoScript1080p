@@ -23,6 +23,8 @@ class AzurLaneAutoScript:
         self.config_name = config_name
         # Skip first restart
         self.is_first_task = True
+        # Resume running battle only once at scheduler start
+        self.session_resumed = False
         # Failure count of tasks
         # Key: str, task name, value: int, failure count
         self.failure_record = {}
@@ -131,6 +133,9 @@ class AzurLaneAutoScript:
                 content=f"<{self.config_name}> Exception occured",
             )
             exit(1)
+        finally:
+            # Unmute if a task ended in the middle of a battle sequence
+            self.device.audio_restore()
 
     def save_error_log(self):
         """
@@ -161,6 +166,13 @@ class AzurLaneAutoScript:
                 lines = handle_sensitive_logs(lines)
             with open(f'{folder}/log.txt', 'w', encoding='utf-8') as f:
                 f.writelines(lines)
+
+    def resume_running_battle(self):
+        from module.handler.session_resume import SessionResume
+        try:
+            SessionResume(self.config, device=self.device).session_resume_wait()
+        except Exception as e:
+            logger.warning(f'Failed to resume running battle, continue with tasks: {e}')
 
     def restart(self):
         from module.handler.login import LoginHandler
@@ -572,6 +584,10 @@ class AzurLaneAutoScript:
             # Init device and change server
             _ = self.device
             self.device.config = self.config
+            # Let a battle or auto search that is already running finish, instead of aborting it
+            if not self.session_resumed:
+                self.session_resumed = True
+                self.resume_running_battle()
             # Skip first restart
             if self.is_first_task and task == 'Restart':
                 logger.info('Skip task `Restart` at scheduler start')

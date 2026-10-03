@@ -143,6 +143,7 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
                     self.auto_search_execute_a_battle()
             except CampaignEnd:
                 logger.hr('Campaign end')
+                self.device.audio_restore()
                 return True
 
         # Exception
