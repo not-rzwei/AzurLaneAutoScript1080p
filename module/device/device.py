@@ -1,4 +1,5 @@
 import collections
+import re
 from datetime import datetime
 
 from lxml import etree
@@ -232,6 +233,42 @@ class Device(Screenshot, Control, AppControl):
 
     def stuck_record_add(self, button):
         self.detect_record.add(str(button))
+
+    _muted_volume = None
+
+    def audio_mute(self):
+        """
+        Set Android media volume to 0 and remember the previous volume.
+        Does nothing if Emulator.MuteDuringCombat is disabled or already muted.
+        """
+        if not self.config.Emulator_MuteDuringCombat or self._muted_volume is not None:
+            return
+        try:
+            output = self.adb_shell(['cmd', 'media_session', 'volume', '--stream', '3', '--get'])
+            res = re.search(r'volume is (\d+)', str(output))
+            if not res:
+                logger.warning(f'Failed to get media volume: {output}')
+                return
+            volume = int(res.group(1))
+            if volume > 0:
+                self.adb_shell(['cmd', 'audio', 'set-volume', '3', '0'])
+                self._muted_volume = volume
+                logger.info(f'Audio muted, previous volume={volume}')
+        except Exception as e:
+            logger.warning(f'Failed to mute audio: {e}')
+
+    def audio_restore(self):
+        """
+        Restore the volume saved by audio_mute().
+        """
+        if self._muted_volume is None:
+            return
+        volume, self._muted_volume = self._muted_volume, None
+        try:
+            self.adb_shell(['cmd', 'audio', 'set-volume', '3', str(volume)])
+            logger.info(f'Audio restored, volume={volume}')
+        except Exception as e:
+            logger.warning(f'Failed to restore audio: {e}')
 
     def stuck_record_clear(self):
         self.detect_record = set()

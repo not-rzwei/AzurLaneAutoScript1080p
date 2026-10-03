@@ -22,13 +22,6 @@
   "browserslist": [
     "Chrome 94"
   ],
-  "simple-git-hooks": {
-    "pre-commit": "npx lint-staged",
-    "pre-push": "npm run typecheck"
-  },
-  "lint-staged": {
-    "*.{js,ts,vue}": "eslint --cache --fix"
-  },
   "devDependencies": {
     "@types/electron-devtools-installer": "2.2.0",
     "@typescript-eslint/eslint-plugin": "4.32.0",

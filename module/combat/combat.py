@@ -662,19 +662,23 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         # if not hasattr(self, 'emotion'):
         #     self.emotion = Emotion(config=self.config)
 
-        with self.stat.new(
-                genre=self.config.campaign_name, method=self.config.DropRecord_CombatRecord
-        ) as drop:
-            if save_get_items is False:
-                drop = None
-            elif isinstance(save_get_items, DropImage):
-                drop = save_get_items
-            self.combat_preparation(
-                balance_hp=balance_hp, emotion_reduce=emotion_reduce, auto=auto_mode, fleet_index=fleet_index)
-            self.combat_execute(
-                auto=auto_mode, submarine=submarine_mode, drop=drop)
-            self.combat_status(
-                drop=drop, expected_end=expected_end)
-            # self.handle_map_after_combat_story()
+        self.device.audio_mute()
+        try:
+            with self.stat.new(
+                    genre=self.config.campaign_name, method=self.config.DropRecord_CombatRecord
+            ) as drop:
+                if save_get_items is False:
+                    drop = None
+                elif isinstance(save_get_items, DropImage):
+                    drop = save_get_items
+                self.combat_preparation(
+                    balance_hp=balance_hp, emotion_reduce=emotion_reduce, auto=auto_mode, fleet_index=fleet_index)
+                self.combat_execute(
+                    auto=auto_mode, submarine=submarine_mode, drop=drop)
+                self.combat_status(
+                    drop=drop, expected_end=expected_end)
+                # self.handle_map_after_combat_story()
+        finally:
+            self.device.audio_restore()
 
         logger.info('Combat end.')

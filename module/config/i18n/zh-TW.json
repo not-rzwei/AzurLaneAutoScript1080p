@@ -484,6 +484,10 @@
     "AdbRestart": {
       "name": "在檢測不到設備的時候嘗試重啟adb",
       "help": ""
+    },
+    "MuteDuringCombat": {
+      "name": "戰鬥時模擬器靜音",
+      "help": "戰鬥開始時將安卓媒體音量設為0，戰鬥結束後恢復"
     }
   },
   "EmulatorInfo": {

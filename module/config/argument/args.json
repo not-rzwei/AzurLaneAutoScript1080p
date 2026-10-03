@@ -146,6 +146,10 @@
       "AdbRestart": {
         "type": "checkbox",
         "value": false
+      },
+      "MuteDuringCombat": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "EmulatorInfo": {

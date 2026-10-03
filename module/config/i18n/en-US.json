@@ -484,6 +484,10 @@
     "AdbRestart": {
       "name": "Try to restart adb when no device found",
       "help": ""
+    },
+    "MuteDuringCombat": {
+      "name": "Mute emulator during combat",
+      "help": "Set Android media volume to 0 when a combat starts and restore it when the combat ends"
     }
   },
   "EmulatorInfo": {

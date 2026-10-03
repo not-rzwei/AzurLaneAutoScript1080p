@@ -7,7 +7,8 @@
       "ScreenshotMethod": "auto",
       "ControlMethod": "MaaTouch",
       "ScreenshotDedithering": false,
-      "AdbRestart": false
+      "AdbRestart": false,
+      "MuteDuringCombat": false
     },
     "EmulatorInfo": {
       "Emulator": "auto",

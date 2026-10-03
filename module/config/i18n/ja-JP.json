@@ -484,6 +484,10 @@
     "AdbRestart": {
       "name": "Emulator.AdbRestart.name",
       "help": "Emulator.AdbRestart.help"
+    },
+    "MuteDuringCombat": {
+      "name": "Emulator.MuteDuringCombat.name",
+      "help": "Emulator.MuteDuringCombat.help"
     }
   },
   "EmulatorInfo": {
