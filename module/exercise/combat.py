@@ -38,6 +38,8 @@ class ExerciseCombat(HpDaemon, OpponentChoose, Combat):
             bool: True if wins. False if quit.
         """
         logger.info('Combat execute')
+        # Stay muted until the whole sequence ends, restored by audio_restore() at stage or task end
+        self.device.audio_mute()
         self.device.stuck_record_clear()
         self.device.click_record_clear()
         self.low_hp_confirm_timer = Timer(1.5, count=2).start()

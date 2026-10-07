@@ -237,6 +237,8 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             fleet_index (int):
         """
         logger.info('Combat preparation.')
+        # Stay muted until the whole sequence ends, restored by audio_restore() at stage or task end
+        self.device.audio_mute()
         self.device.stuck_record_clear()
         self.device.click_record_clear()
         skip_first_screenshot = True
@@ -370,6 +372,8 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             drop (DropImage):
         """
         logger.info('Combat execute')
+        # Stay muted until the whole sequence ends, restored by audio_restore() at stage or task end
+        self.device.audio_mute()
         self.submarine_call_reset()
         self.combat_auto_reset()
         self.combat_manual_reset()
@@ -662,8 +666,6 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         # if not hasattr(self, 'emotion'):
         #     self.emotion = Emotion(config=self.config)
 
-        # Stay muted until the whole sequence ends, restored by audio_restore() at stage or task end
-        self.device.audio_mute()
         with self.stat.new(
                 genre=self.config.campaign_name, method=self.config.DropRecord_CombatRecord
         ) as drop:

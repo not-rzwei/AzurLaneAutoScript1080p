@@ -216,6 +216,8 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
             out: combat status
         """
         logger.info('Auto search combat loading')
+        # Stay muted until the whole sequence ends, restored by audio_restore() at stage or task end
+        self.device.audio_mute()
         self.device.stuck_record_clear()
         self.device.click_record_clear()
         self.device.screenshot_interval_set('combat')
@@ -354,8 +356,6 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
         """
         emotion_reduce = emotion_reduce if emotion_reduce is not None else self.emotion.is_calculate
 
-        # Stay muted until the whole auto search ends, restored by audio_restore() at stage or task end
-        self.device.audio_mute()
         self.auto_search_combat_execute(emotion_reduce=emotion_reduce, fleet_index=fleet_index)
         self.auto_search_combat_status()
 
