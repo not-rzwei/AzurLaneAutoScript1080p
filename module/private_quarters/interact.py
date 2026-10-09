@@ -21,6 +21,13 @@ class PQInteract(UI):
         'nakhimov': (PRIVATE_QUARTERS_SHIP_NAKHIMOV, PRIVATE_QUARTERS_PAGE_LOCALE_VILLA),
         'implacable': (PRIVATE_QUARTERS_SHIP_IMPLACABLE, PRIVATE_QUARTERS_PAGE_LOCALE_VILLA),
     }
+    # Key: Button, page locale
+    # Value: Button, locale entry in map menu
+    locale_map_buttons = {
+        PRIVATE_QUARTERS_PAGE_LOCALE_BEACH: PRIVATE_QUARTERS_MAP_BEACH,
+        PRIVATE_QUARTERS_PAGE_LOCALE_LOFT: PRIVATE_QUARTERS_MAP_LOFT,
+        PRIVATE_QUARTERS_PAGE_LOCALE_VILLA: PRIVATE_QUARTERS_MAP_VILLA,
+    }
 
     def _pq_handle_dialogue(self):
         """
@@ -118,40 +125,56 @@ class PQInteract(UI):
         page_btn = self.available_targets[target_ship][1]
         logger.hr(f'Seek {target_title}\'s Page', level=2)
 
-        # Depending on current page position
-        # Search left then right or reverse order
-        directions = [PRIVATE_QUARTERS_PAGE_LEFT, PRIVATE_QUARTERS_PAGE_RIGHT]
-        if not self.appear(PRIVATE_QUARTERS_PAGE_LEFT, offset=(20, 20)):
-            directions.reverse()
+        # Jump directly to the locale through the map menu
+        # instead of turning pages left and right
+        map_btn = self.locale_map_buttons[page_btn]
 
-        # Execute page seek
         skip_first_screenshot = True
-        self.interval_clear(directions)
-        settle_timer = Timer(1.5, count=3).start()
-        for direction in directions:
-            while 1:
-                if skip_first_screenshot:
-                    skip_first_screenshot = False
-                else:
-                    self.device.screenshot()
+        self.interval_clear(PRIVATE_QUARTERS_MAP_ENTER)
+        click_timer = Timer(2)
+        open_timer = Timer(0.6)
+        close_timer = Timer(1.5, count=3)
+        timeout = Timer(15, count=30).start()
+        while 1:
+            if skip_first_screenshot:
+                skip_first_screenshot = False
+            else:
+                self.device.screenshot()
 
-                # End, success
-                if self.appear(page_btn, offset=(20, 20)):
+            if timeout.reached():
+                logger.warning(f'{target_title}\'s page cannot be found')
+                return False
+
+            menu_opened = self.appear(PRIVATE_QUARTERS_MAP_CHECK, offset=(20, 20))
+
+            # End, success
+            # Map button label shows the current locale
+            if self.appear(page_btn, offset=(20, 20)):
+                if not menu_opened:
                     logger.info(f'Reached {target_title}\'s page')
                     return True
+                # Menu closes by itself after selecting locale,
+                # close it manually only if it stays opened
+                if not close_timer.started():
+                    close_timer.start()
+                elif close_timer.reached():
+                    self.device.click(PRIVATE_QUARTERS_MAP_ENTER)
+                    close_timer.clear()
+                continue
+            close_timer.clear()
 
-                # Enable interval delay to confirm page after click
-                if self.appear_then_click(direction, offset=(20, 20), interval=1):
-                    settle_timer.reset()
-                    continue
+            # Map menu opened, select target locale
+            # Wait menu open animation before clicking
+            if menu_opened:
+                if open_timer.reached() and click_timer.reached():
+                    self.device.click(map_btn)
+                    click_timer.reset()
+                continue
 
-                # No more page clicks past interval 1
-                # Thus can safely go the other direction
-                if settle_timer.reached():
-                    break
-
-        logger.warning(f'{target_title}\'s page cannot be found')
-        return False
+            # Open map menu
+            if self.appear_then_click(PRIVATE_QUARTERS_MAP_ENTER, offset=(20, 20), interval=2):
+                open_timer.reset()
+                continue
 
     def _pq_goto_room_check(self):
         """
