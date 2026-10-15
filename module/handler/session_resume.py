@@ -17,7 +17,8 @@ class SessionResume(Combat):
             return 'combat loading'
         if self.is_auto_search_running():
             return 'auto search'
-        if self.appear(AUTO_SEARCH_OS_MAP_OPTION_ON, offset=(5, 120)):
+        # ON and OFF share the same shape, need color to tell them apart
+        if self.match_template_color(AUTO_SEARCH_OS_MAP_OPTION_ON, offset=(5, 120)):
             return 'OpSi auto search'
         return ''
 
