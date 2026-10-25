@@ -31,8 +31,17 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
     _resize_method_idx = 0
     image: np.ndarray
 
-    cv_interpolation_methods = [cv2.INTER_LANCZOS4, cv2.INTER_AREA]
-    pillow_interpolation_methods = [Image.LANCZOS, Image.BICUBIC]
+    # Downscale 2560x1440 -> 1280x720, round-robin.
+    # Benchmarked against all asset templates on 209 real 1440p frames: these are as accurate as
+    # LANCZOS4 / Pillow LANCZOS / Pillow BICUBIC (no misses on matched templates, no false positives),
+    # at ~2ms (AREA) and ~5ms (CUBIC) CPU instead of 30-46ms. pyrDown and nearest were worse, don't add them.
+    cv_interpolation_methods = [cv2.INTER_AREA, cv2.INTER_CUBIC]
+    pillow_interpolation_methods = []
+    # OpenCV threads used while capturing and downscaling screenshots.
+    # With all cores, OpenCV's workers spin and burn several times the CPU of the actual work
+    # on a 2560x1440 frame (cvtColor: 1.5ms wall, 10-15ms CPU). Output is identical for any thread count.
+    # Restored afterwards, so template matching elsewhere is not affected.
+    screenshot_cv_threads = 2
 
     @cached_property
     def _resize_methods_list(self):
@@ -90,25 +99,30 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
                 method = self.config.Emulator_ScreenshotMethod
             method = self.screenshot_methods.get(method, self.screenshot_adb)
 
-            self.image = method()
-            width, height = image_size(self.image)
-            if width != 1280 or height != 720:
-                method_type, interp = self.get_next_resize_method()
+            cv_threads = cv2.getNumThreads()
+            cv2.setNumThreads(self.screenshot_cv_threads)
+            try:
+                self.image = method()
+                width, height = image_size(self.image)
+                if width != 1280 or height != 720:
+                    method_type, interp = self.get_next_resize_method()
 
-                if method_type == 'cv':
-                    self.image = cv2.resize(self.image, (1280, 720), interpolation=interp)
-                else:
-                    self.image = np.array(
-                        Image.fromarray(self.image).resize(
-                            (1280, 720),
-                            resample=interp
+                    if method_type == 'cv':
+                        self.image = cv2.resize(self.image, (1280, 720), interpolation=interp)
+                    else:
+                        self.image = np.array(
+                            Image.fromarray(self.image).resize(
+                                (1280, 720),
+                                resample=interp
+                            )
                         )
-                    )
 
-            if self.config.Emulator_ScreenshotDedithering:
-                # This will take 40-60ms
-                cv2.fastNlMeansDenoising(self.image, self.image, h=17, templateWindowSize=1, searchWindowSize=2)
-            self.image = self._handle_orientated_image(self.image)
+                if self.config.Emulator_ScreenshotDedithering:
+                    # This will take 40-60ms
+                    cv2.fastNlMeansDenoising(self.image, self.image, h=17, templateWindowSize=1, searchWindowSize=2)
+                self.image = self._handle_orientated_image(self.image)
+            finally:
+                cv2.setNumThreads(cv_threads)
 
             if self.config.Error_SaveError:
                 self.screenshot_deque.append({'time': datetime.now(), 'image': self.image})

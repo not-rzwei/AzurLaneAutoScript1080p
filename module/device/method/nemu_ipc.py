@@ -369,7 +369,11 @@ class NemuIpcImpl:
         width_ptr = ctypes.pointer(ctypes.c_int(self.width))
         height_ptr = ctypes.pointer(ctypes.c_int(self.height))
         length = self.width * self.height * 4
-        pixels_pointer = ctypes.pointer((ctypes.c_ubyte * length)())
+        # np.empty skips the zero-fill that a ctypes array does (~2.6ms at 2560x1440),
+        # the DLL overwrites the whole buffer anyway.
+        # A fresh buffer per call keeps a timed-out capture thread from writing into the next frame.
+        pixels = np.empty(length, dtype=np.uint8)
+        pixels_pointer = pixels.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
 
         ret = self.lib.nemu_capture_display(
             self.connect_id, self.display_id, length, width_ptr, height_ptr, pixels_pointer,
@@ -377,8 +381,7 @@ class NemuIpcImpl:
         if ret > 0:
             raise NemuIpcError('nemu_capture_display failed during screenshot()')
 
-        # Return pixels_pointer instead of image to avoid passing image through jobs
-        return pixels_pointer
+        return pixels
 
     @retry
     def screenshot(self, timeout=0.5):
@@ -394,10 +397,9 @@ class NemuIpcImpl:
         if self.connect_id == 0:
             self.connect()
 
-        pixels_pointer = self.run_func(self._screenshot, timeout=timeout)
+        pixels = self.run_func(self._screenshot, timeout=timeout)
 
-        # image = np.ctypeslib.as_array(pixels_pointer, shape=(self.height, self.width, 4))
-        image = np.ctypeslib.as_array(pixels_pointer.contents).reshape((self.height, self.width, 4))
+        image = pixels.reshape((self.height, self.width, 4))
         return image
 
     def convert_xy(self, x, y):
