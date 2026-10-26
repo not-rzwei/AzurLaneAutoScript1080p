@@ -376,7 +376,10 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
 
                 # End
                 # No offset, color detection only
-                if self.is_in_queue() and not self.appear(QUEUE_CLAIM_REWARD, offset=None):
+                # QUEUE_CHECK still matches behind the blurred GET_ITEMS popup (sim ~0.80),
+                # so a popup must not count as being back in queue
+                if self.is_in_queue() and not self.appear(QUEUE_CLAIM_REWARD, offset=None) \
+                        and self.get_items() is None:
                     if end_confirm.reached():
                         break
                 else:
