@@ -43,7 +43,9 @@ class Level(ModuleBase):
 
     @Config.when(SERVER='jp')
     def _lv_grid(self):
-        return ButtonGrid(origin=(34, 128), delta=(0, 100), button_shape=(68, 19), grid_shape=(1, 6))
+        # 3px higher than the 'LV.' area (digits are taller, LevelOcrMap.TOP) and wide enough to include
+        # the card's right border (x=105), LevelOcrMap cuts both off.
+        return ButtonGrid(origin=(34, 125), delta=(0, 100), button_shape=(74, 22), grid_shape=(1, 6))
 
     @Config.when(SERVER=None)
     def _lv_grid(self):
@@ -62,7 +64,7 @@ class Level(ModuleBase):
 
         self._lv_before_battle = self.lv if after_battle else [-1] * 6
 
-        ocr = LevelOcr(self._lv_grid().buttons, name='LevelOcr')
+        ocr = LevelOcrMap(self._lv_grid().buttons, name='LevelOcr')
         self.lv = ocr.ocr(self.device.image)
         logger.attr('LEVEL', ', '.join(str(data) for data in self.lv))
 
@@ -123,11 +125,20 @@ class Level(ModuleBase):
 
 
 class LevelOcr(Digit):
-    def pre_process(self, image):
+    @staticmethod
+    def _grey(image, top=0):
+        """
+        Args:
+            image (np.ndarray):
+            top (int): Rows above the area the mask check is tuned on
+
+        Returns:
+            np.ndarray: Greyscale image, letters black on white
+        """
         # Check the max value of red channel to find out whether the image is masked.
         # It would be no larger than COLOR_MASKED[0]=107 iff masked.
         # Crop before checking to cut off the "need repair" icon while preserving upper part of char 'V'.
-        max_red = image[:8, :, 0].max()
+        max_red = image[top:top + 8, :, 0].max()
         if max_red <= COLOR_MASKED[0]:
             # The mask on low hp ships turns COLOR_WHITE=(255, 255, 255) to COLOR_MASKED=(107, 105, 107),
             # so multiply all channels by a scalar can turn them back.
@@ -143,6 +154,10 @@ class LevelOcr(Digit):
         luma_bg = np.dot(bg, luma_trans)
         image = cv2.subtract(image, (*bg, 0)).dot(luma_trans).round().astype(np.uint8)
         image = cv2.subtract(255, cv2.multiply(image, 255 / (255 - luma_bg)))
+        return image
+
+    def pre_process(self, image):
+        image = self._grey(image)
         # Find 'L' to strip 'LV.'.
         # Return an empty image if 'L' is not found.
         if server.server != 'jp':
@@ -170,3 +185,50 @@ class LevelOcr(Digit):
         result = int(result) if result else 0
 
         return result
+
+
+class LevelOcrMap(LevelOcr):
+    """
+    Level OCR of the fleet cards on the left of the sea map.
+
+    On JP, the image LevelOcr feeds the model had three problems:
+    - The digits are 2px taller than 'LV.' and start above the area, the top arc of 0 got cut,
+      leaving two bars the model read as nothing: 109 -> 19.
+    - The dot of 'LV.' stays in front of the digits: 121 -> 21, 12.
+    - Once the area is wide enough for the last digit, the card's right border follows it: 113 -> 1131.
+    So the JP grid starts TOP rows higher, 'L' is located on the rows LevelOcr uses,
+    and the dot and the border are cut off.
+    """
+    # Extra rows above the area LevelOcr was tuned on
+    TOP = 3
+
+    def pre_process(self, image):
+        if server.server != 'jp':
+            return super().pre_process(image)
+        grey = self._grey(image, top=self.TOP)
+        base = grey[self.TOP:]
+        # Find 'L' to strip 'LV.', same as LevelOcr
+        letter_l = np.nonzero(base[5:11, :].max(axis=0) < 63)[0]
+        if not len(letter_l):
+            return np.array([[255]], dtype=np.uint8)
+        first_digit = letter_l[0] + 23
+        if first_digit + 3 >= grey.shape[1]:
+            return np.array([[255]], dtype=np.uint8)
+        image = grey[:, first_digit:]
+        h = image.shape[0]
+        # Card border is a vertical line longer than the digits, it still has ink below the digit baseline.
+        # Require a line, other things below the digits (like a flashing icon) must not cut digits off.
+        ink = image < 170
+        border = np.nonzero((ink[h - 4:].sum(axis=0) >= 3) & (ink[self.TOP:h - 4].sum(axis=0) >= 10))[0]
+        if len(border):
+            image = image[:, :border[0]]
+        # The dot only has ink in the lower half of 'LV.',
+        # digits start at the first column with ink in its upper half.
+        top = np.nonzero((image[self.TOP + 2:self.TOP + 7] < 128).any(axis=0))[0]
+        if len(top):
+            image = image[:, max(top[0] - 1, 0):]
+        if not image.shape[1]:
+            return np.array([[255]], dtype=np.uint8)
+        # Drop the rows below the digits, where the border was
+        image = image[:h - 4]
+        return cv2.copyMakeBorder(image, 2, 2, 2, 2, cv2.BORDER_CONSTANT, value=(255, 255, 255))
