@@ -296,6 +296,10 @@ class OpsiAshBeacon(Meta):
             # End
             if self.appear(HELP_CONFIRM, offset=(20, 20)):
                 break
+            # META killed by the last attack, page refreshed to reward after state was read
+            if self.appear(BEACON_REWARD, offset=(30, 30)):
+                logger.info('META finished before calling assist, ignore meta assist')
+                return False
             # Click
             if self.appear_then_click(HELP_ENTER, offset=(20, 20), interval=3):
                 continue
