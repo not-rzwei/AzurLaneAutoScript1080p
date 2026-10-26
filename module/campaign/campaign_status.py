@@ -93,7 +93,11 @@ class CampaignStatus(UI):
             if server.server != 'jp':
                 ocr = Digit(OCR_OIL, name='OCR_OIL', letter=(247, 247, 247), threshold=128)
             else:
-                ocr = Digit(OCR_OIL, name='OCR_OIL', letter=(201, 201, 201), threshold=128)
+                # JP digits are right-aligned and the last one ends right at OCR_OIL's right edge (x=714),
+                # with the dimmer letter color a trailing 0 gets dropped (17680 -> 1768).
+                # Extend 3px to the right, the "+" button starts at x=716 and is too dark to matter.
+                x1, y1, x2, y2 = OCR_OIL.area
+                ocr = Digit((x1, y1, x2 + 3, y2), name='OCR_OIL', letter=(201, 201, 201), threshold=128)
         elif color_similar(color, (59, 59, 64)):
             # With black overlay
             ocr = Digit(OCR_OIL, name='OCR_OIL', letter=(165, 165, 165), threshold=128)
