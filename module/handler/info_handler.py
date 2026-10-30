@@ -438,8 +438,15 @@ class InfoHandler(ModuleBase):
                 self._story_option_confirm.reset()
             elif options_count == self._story_option_record:
                 if self._story_option_confirm.reached():
+                    option = self.config.STORY_OPTION
+                    if option == -2 and options_count == 5:
+                        # Siren scanning device (story W1015-W1017) now has 5 options:
+                        # enemy, resource, repeated enemy scan, repeated resource scan, leave.
+                        # -2 used to be the single resource scan (3 options), now it would start the
+                        # repeated scan, which loops and consumes tokens. Keep the single resource scan.
+                        option = 1
                     try:
-                        select = options[self.config.STORY_OPTION]
+                        select = options[option]
                     except IndexError:
                         select = options[0]
                     self.device.click(select)
