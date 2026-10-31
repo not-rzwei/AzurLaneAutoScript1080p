@@ -371,6 +371,16 @@ class CampaignRun(CampaignEvent):
             self.config.task_call('Commission', force_call=True)
             self.config.task_stop('Commission notice found')
 
+    def is_stage_remain_exhausted(self):
+        """
+        Override in tasks whose stage has a daily limit.
+        Called on the stage page after ensure_campaign_ui().
+
+        Returns:
+            bool: If no remaining times today
+        """
+        return False
+
     def run(self, name, folder='campaign_main', mode='normal', total=0):
         """
         Args:
@@ -433,6 +443,12 @@ class CampaignRun(CampaignEvent):
                     logger.info('Remaining number of times of hard mode campaign_main is 0, delay task to next day')
                     self.config.task_delay(server_update=True)
                     break
+
+            # Daily-limited stages, such as event SP, check remain times
+            if not self.campaign.is_in_auto_search_menu() and self.is_stage_remain_exhausted():
+                logger.info('Remaining times of this stage is 0, delay task to next day')
+                self.config.task_delay(server_update=True)
+                break
 
             # End
             if self.triggered_stop_condition(oil_check=not self.campaign.is_in_auto_search_menu()):
