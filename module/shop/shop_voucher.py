@@ -201,6 +201,8 @@ class VoucherShop(ShopClerk, ShopStatus):
         """
         success = False
         self.shop_interval_clear()
+        # Same unknown-popup fallback as ShopClerk.shop_buy_execute
+        idle = Timer(10, count=20).start()
 
         while 1:
             if skip_first_screenshot:
@@ -210,28 +212,42 @@ class VoucherShop(ShopClerk, ShopStatus):
 
             if self.appear(BACK_ARROW, offset=(30, 30), interval=3):
                 self.device.click(item)
+                idle.reset()
                 continue
             if self.appear_then_click(SHOP_BUY_CONFIRM, offset=(20, 20), interval=3):
                 self.interval_reset(BACK_ARROW)
+                idle.reset()
                 continue
             if self.shop_buy_handle(item):
                 self.interval_reset(BACK_ARROW)
+                idle.reset()
                 continue
             if self.handle_retirement():
                 self.interval_reset(BACK_ARROW)
+                idle.reset()
                 continue
             if self.shop_obstruct_handle():
                 self.interval_reset(BACK_ARROW)
                 success = True
+                idle.reset()
                 continue
             if self.info_bar_count():
                 self.interval_reset(BACK_ARROW)
                 success = True
+                idle.reset()
                 continue
 
             # End
             if success and self.appear(BACK_ARROW, offset=(30, 30)):
                 break
+
+            if idle.reached():
+                success = True
+                logger.warning(f'Shop buy idle too long, unknown popup -> {SHOP_CLICK_SAFE_AREA}')
+                self.device.click(SHOP_CLICK_SAFE_AREA)
+                self.interval_reset(BACK_ARROW)
+                idle.reset()
+                continue
 
     def run(self):
         """

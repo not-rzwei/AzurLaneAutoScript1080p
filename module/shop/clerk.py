@@ -290,6 +290,10 @@ class ShopClerk(ShopBase, Retirement):
         """
         success = False
         self.shop_interval_clear()
+        # Nothing handled for this long means an unrecognised popup is covering the shop,
+        # e.g. GET_ITEMS rendered at ~2/3 scale (scale-in animation stuck) that GET_ITEMS_1 can't match.
+        # Longer than every interval above, much shorter than the 60s GameStuckError.
+        idle = Timer(10, count=20).start()
 
         while 1:
             if skip_first_screenshot:
@@ -299,28 +303,45 @@ class ShopClerk(ShopBase, Retirement):
 
             if self.appear(SHOP_BACK_ARROW, offset=(30, 30), interval=3):
                 self.device.click(item)
+                idle.reset()
                 continue
             if self.appear_then_click(SHOP_BUY_CONFIRM, offset=(20, 20), interval=3):
                 self.interval_reset(SHOP_BACK_ARROW)
+                idle.reset()
                 continue
             if self.shop_buy_handle(item):
                 self.interval_reset(SHOP_BACK_ARROW)
+                idle.reset()
                 continue
             if self.handle_retirement():
                 self.interval_reset(SHOP_BACK_ARROW)
+                idle.reset()
                 continue
             if self.shop_obstruct_handle():
                 self.interval_reset(SHOP_BACK_ARROW)
                 success = True
+                idle.reset()
                 continue
             if self.info_bar_count():
                 self.interval_reset(SHOP_BACK_ARROW)
                 success = True
+                idle.reset()
                 continue
 
             # End
             if success and self.appear(SHOP_BACK_ARROW, offset=(30, 30)):
                 break
+
+            # Unknown popup, tap it away; a tap anywhere dismisses GET_ITEMS.
+            # Count it as bought so the item isn't clicked again (overbuy); if it wasn't,
+            # shop_buy() re-reads the shop and retries.
+            if idle.reached():
+                success = True
+                logger.warning(f'Shop buy idle too long, unknown popup -> {SHOP_CLICK_SAFE_AREA}')
+                self.device.click(SHOP_CLICK_SAFE_AREA)
+                self.interval_reset(SHOP_BACK_ARROW)
+                idle.reset()
+                continue
 
     def shop_buy(self):
         """
