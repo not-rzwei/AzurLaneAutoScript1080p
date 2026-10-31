@@ -15,6 +15,9 @@ from module.ui.scroll import Scroll
 
 PRICE_OCR = DigitYuv([], letter=(255, 223, 57), threshold=128, name='Price_ocr')
 VOUCHER_SHOP_SCROLL = Scroll(VOUCHER_SHOP_SCROLL_AREA, color=(255, 255, 255))
+# Track is light grey (up to ~226) and the thumb pure white; the default 221 counts the track as thumb,
+# position reads 0.88 at the bottom and next_page() swipes forever (GameTooManyClickError)
+VOUCHER_SHOP_SCROLL.color_threshold = 240
 TEMPLATE_VOUCHER_ICON = Template('./assets/shop/cost/Voucher.png')
 
 
