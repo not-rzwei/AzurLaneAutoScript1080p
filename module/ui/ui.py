@@ -458,9 +458,11 @@ class UI(InfoHandler):
             logger.critical(
                 "Possible reason #2: Your fleets haven't satisfied the level restrictions in operation siren")
             raise RequestHumanTakeover
-        if self.appear_then_click(RESET_TICKET_POPUP, offset=(30, 30), interval=3):
+        # Popup body is translucent, page behind it (e.g. OpSi fleet select) drops similarity to ~0.82
+        if self.appear_then_click(RESET_TICKET_POPUP, offset=(30, 30), similarity=0.75, interval=3):
             return True
-        if self.appear_then_click(RESET_FLEET_PREPARATION, offset=(30, 30), interval=3):
+        # The green hint text sits on a translucent bar, background bleed gives 0.68~0.80 (other pages <= 0.38)
+        if self.appear_then_click(RESET_FLEET_PREPARATION, offset=(30, 30), similarity=0.65, interval=3):
             self._opsi_reset_fleet_preparation_click += 1
             self.interval_reset(FLEET_PREPARATION)
             self.interval_reset(RESET_TICKET_POPUP)
