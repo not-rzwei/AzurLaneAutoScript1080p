@@ -88,6 +88,13 @@ class OpsiExplore(OSMap):
             self._os_explore_task_delay()
 
             finished_combat = self.run_auto_search()
+            # Auto search may stop instantly with enemies left on radar, approach them and retry
+            for _ in range(3):
+                if finished_combat or 'is_exploration_container' in self._solved_map_event:
+                    break
+                if self.approach_radar_enemy() is None:
+                    break
+                finished_combat += self.run_auto_search()
             self.config.OpsiExplore_LastZone = zone
             logger.info(f'Zone cleared: {self.name_to_zone(zone)}')
             if finished_combat == 0:

@@ -1,6 +1,7 @@
 import time
 
 import inflection
+import numpy as np
 
 from module.base.timer import Timer
 from module.config.utils import get_os_reset_remain
@@ -8,7 +9,7 @@ from module.exception import CampaignEnd, GameTooManyClickError, MapWalkError, R
 from module.handler.login import LoginHandler, MAINTENANCE_ANNOUNCE
 from module.logger import logger
 from module.map.map import Map
-from module.os.assets import FLEET_EMP_DEBUFF, MAP_GOTO_GLOBE_FOG
+from module.os.assets import FLEET_EMP_DEBUFF, GLOBE_GOTO_MAP, MAP_GOTO_GLOBE_FOG
 from module.os.fleet import OSFleet
 from module.os.globe_camera import GlobeCamera
 from module.os.globe_operation import RewardUncollectedError
@@ -121,6 +122,36 @@ class OSMap(OSFleet, Map, GlobeCamera, StrategicSearchHandler):
                 logger.info('Goto another zone to refresh current zone')
                 self.globe_goto(self.zone_nearest_azur_port(self.zone),
                                 types=('SAFE', 'DANGEROUS'), refresh=False)
+            elif stop_if_safe:
+                # Returning False here would tell the caller the zone is safe without checking it
+                logger.info('Already at target zone, check if it is safe')
+                if self.is_in_map():
+                    self.os_map_goto_globe()
+                self.globe_update()
+                self.globe_focus_to(zone)
+                safe = self.zone_has_safe()
+                self.ensure_no_zone_pinned()
+                if safe:
+                    logger.info('Zone is safe, stopped')
+                    return False
+                self.os_globe_goto_map()
+                # GLOBE_GOTO_MAP may be clicked during the unpin swipe and get ignored,
+                # confirm that globe is really gone
+                confirm = Timer(1.5, count=3).start()
+                click_timer = Timer(3)
+                for _ in self.loop():
+                    if self.is_in_globe():
+                        confirm.reset()
+                        if click_timer.reached():
+                            self.device.click(GLOBE_GOTO_MAP)
+                            click_timer.reset()
+                        continue
+                    if self.is_in_map():
+                        if confirm.reached():
+                            break
+                    else:
+                        confirm.reset()
+                return True
             else:
                 if self.is_in_globe():
                     self.os_globe_goto_map()
@@ -697,6 +728,59 @@ class OSMap(OSFleet, Map, GlobeCamera, StrategicSearchHandler):
         logger.warning('Failed to goto question mark after 5 trail, '
                        'this might be 2 adjacent fleet mechanism, stopped')
         return False
+
+    @staticmethod
+    def _sight_fit(dx, dy, radius=3):
+        """
+        Limit a walk relative to current fleet to grids on screen and inside fleet sight.
+        Explored grids outside sight are not clickable.
+        """
+        dx = min(max(int(dx), -4), 3)
+        dy = min(max(int(dy), -2), 2)
+        while dx * dx + dy * dy > radius * radius:
+            if abs(dx) >= abs(dy):
+                dx -= int(np.sign(dx))
+            else:
+                dy -= int(np.sign(dy))
+        return dx, dy
+
+    def approach_radar_enemy(self, drop=None):
+        """
+        Auto search sometimes stops right away with
+        `可視範囲内で調査対象が存在しないため、自動攻略モードが中止されました`
+        while radar still shows enemies near the fleet, then nothing gets fought.
+        Walk to the nearest radar enemy, a battle on the way or a new position makes auto search work again.
+
+        Returns:
+            str: Things that fleet met on its way, see wait_until_walk_stable(). None if not moved.
+        """
+        logger.hr('Approach radar enemy', level=2)
+        self.device.screenshot()
+        self.radar.predict(self.device.image)
+        self.radar.show()
+        enemies = self.radar.select(is_enemy=True)
+        if not enemies:
+            logger.info('No enemy on radar')
+            return None
+        nearest = enemies.sort_by_camera_distance((0, 0))[0]
+        # Fleet can only move to grids in its sight, a circle of radius 3
+        location = self._sight_fit(*nearest.location)
+        logger.info(f'Nearest radar enemy: {nearest.location}, go to {location}')
+
+        self.handle_info_bar()
+        self.update_os()
+        self.view.predict()
+        self.view.show()
+        grid = self.convert_radar_to_local(location)
+        self.device.click(grid)
+        try:
+            result = self.wait_until_walk_stable(
+                drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4))
+        except MapWalkError as e:
+            logger.warning(f'Failed to approach radar enemy: {e}')
+            return None
+        logger.info(f'Approach radar enemy result: {result}')
+        return result
 
     def run_auto_search(self, question=True, rescan=None, after_auto_search=True):
         """
