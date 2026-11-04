@@ -2,6 +2,7 @@ from module.base.decorator import Config
 from module.base.timer import Timer
 from module.base.utils import *
 from module.exception import MapDetectionError, ScriptError
+from module.handler.assets import STORY_SKIP_3
 from module.logger import logger
 from module.ocr.ocr import Ocr
 from module.os.assets import *
@@ -240,6 +241,9 @@ class OSMapOperation(MapOrderHandler, MissionHandler, PortHandler, StorageHandle
         """
         logger.hr('Map exit')
         confirm_timer = Timer(1, count=2)
+        # Story options in a special zone may leave it already (game returns to the zone we came from),
+        # then there is no MAP_EXIT to click
+        already_out_timer = Timer(3, count=6).start()
         changed = False
         for _ in self.loop():
             # End
@@ -248,6 +252,14 @@ class OSMapOperation(MapOrderHandler, MissionHandler, PortHandler, StorageHandle
                     break
             else:
                 confirm_timer.reset()
+            # Story overlays dim MAP_EXIT while is_in_map() stays True
+            if self.is_in_map() and not self.appear(MAP_EXIT, offset=(20, 20)) \
+                    and not self.appear(STORY_SKIP_3, offset=(20, 20)):
+                if already_out_timer.reached():
+                    logger.info('Not in a special zone, already exited')
+                    break
+            else:
+                already_out_timer.reset()
             # If MAP_EXIT still appears, we haven't exit this zone yet
             if self.appear(MAP_EXIT, offset=(20, 20)):
                 confirm_timer.reset()

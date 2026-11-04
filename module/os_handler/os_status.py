@@ -15,7 +15,8 @@ from module.ui.ui import UI
 if server.server != 'jp':
     OCR_SHOP_YELLOW_COINS = Digit(SHOP_YELLOW_COINS, letter=(239, 239, 239), threshold=160, name='OCR_SHOP_YELLOW_COINS')
 else:
-    OCR_SHOP_YELLOW_COINS = Digit(SHOP_YELLOW_COINS, letter=(201, 201, 201), threshold=200, name='OCR_SHOP_YELLOW_COINS')
+    # letter 201 / threshold 200 misreads on INTER_CUBIC frames (43962 -> 413962), 239 / 160 reads both resizes
+    OCR_SHOP_YELLOW_COINS = Digit(SHOP_YELLOW_COINS, letter=(239, 239, 239), threshold=160, name='OCR_SHOP_YELLOW_COINS')
 OCR_SHOP_PURPLE_COINS = Digit(SHOP_PURPLE_COINS, letter=(255, 255, 255), name='OCR_SHOP_PURPLE_COINS')
 OCR_OS_SHOP_PURPLE_COINS = Digit(OS_SHOP_PURPLE_COINS, letter=(255, 255, 255), name='OCR_OS_SHOP_PURPLE_COINS')
 
@@ -43,7 +44,6 @@ class OSStatus(UI):
         such as recon scan cooldown and submarine call cooldown.
         """
         now = datetime.now()
-        update = get_server_next_update('00:00')
         cd_tasks = [
             'OpsiObscure',
             'OpsiAbyssal',
@@ -53,6 +53,9 @@ class OSStatus(UI):
 
         def func(task: Function):
             if task.command in cd_tasks and task.enable:
+                # A task delayed to its own server update has nothing left to do (OpsiAbyssal updates at 12:00 too)
+                update = get_server_next_update(
+                    self.config.cross_get(f'{task.command}.Scheduler.ServerUpdate', default='00:00'))
                 if task.next_run != update and task.next_run - now <= timedelta(minutes=60):
                     return True
 

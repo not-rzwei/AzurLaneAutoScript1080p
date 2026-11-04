@@ -24,15 +24,17 @@ class OpsiMeowfficerFarming(OSMap):
                 OpsiGeneral_AkashiShopFilter='ActionPoint',
                 OpsiFleet_Submarine=False,
             )
-            cd = self.nearest_task_cooling_down
-            logger.attr('Task cooling down', cd)
-            # At the last day of every month, OpsiObscure and OpsiAbyssal are scheduled frequently
-            # Don't schedule after them
-            remain = get_os_reset_remain()
-            if cd is not None and remain > 0:
-                logger.info(f'Having task cooling down, delay OpsiMeowfficerFarming after it')
-                self.config.task_delay(target=cd.next_run)
-                self.config.task_stop()
+        # Obscure / abyssal / stronghold / daily need AP but wait for recon scan cooldowns between runs.
+        # Farming would spend that AP meanwhile, so run only after they have nothing left today.
+        cd = self.nearest_task_cooling_down
+        logger.attr('Task cooling down', cd)
+        # At the last day of every month, OpsiObscure and OpsiAbyssal are scheduled frequently
+        # Don't schedule after them
+        remain = get_os_reset_remain()
+        if cd is not None and remain > 0:
+            logger.info(f'Having task cooling down, delay OpsiMeowfficerFarming after it')
+            self.config.task_delay(target=cd.next_run)
+            self.config.task_stop()
         if self.is_in_opsi_explore():
             logger.warning(f'OpsiExplore is still running, cannot do {self.config.task.command}')
             self.config.task_delay(server_update=True)
