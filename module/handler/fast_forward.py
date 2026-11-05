@@ -15,11 +15,17 @@ FLEET_LOCK.add_state('off', check_button=FLEET_UNLOCKED)
 
 class SwitchClearMode(Switch):
     def get(self, main):
-        title = main.appear(CLEAR_MODE_TITLE, offset=(20, 20))
+        title = None
+        if main.appear(CLEAR_MODE_TITLE, offset=(20, 20)):
+            title = CLEAR_MODE_TITLE
+        # [JP] Text rendering changed in the 2026.11.05 client, old template scores ~0.86
+        if not title:
+            if main.appear(CLEAR_MODE_TITLE2, offset=(20, 20)):
+                title = CLEAR_MODE_TITLE2
         if not title:
             return 'unknown'
         # find check area to the right of title
-        CLEAR_MODE_CHECK.load_offset(CLEAR_MODE_TITLE)
+        CLEAR_MODE_CHECK.load_offset(title)
         # cyan letter is `on`
         if main.image_color_count(CLEAR_MODE_CHECK.button, color=(130, 229, 255), threshold=30, count=50):
             return 'on'
@@ -58,6 +64,10 @@ class SwitchAutoSearch(Switch):
         if not title:
             if main.appear(AUTO_SEARCH_TITLE5, offset=(20, 20)):
                 title = AUTO_SEARCH_TITLE5
+        # [JP] Text rendering changed in the 2026.11.05 client, dropping all 5 templates above to <0.78
+        if not title:
+            if main.appear(AUTO_SEARCH_TITLE6, offset=(20, 20)):
+                title = AUTO_SEARCH_TITLE6
         if not title:
             return 'unknown'
         # find check area to the right of title
