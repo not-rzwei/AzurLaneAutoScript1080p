@@ -284,9 +284,15 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
                 continue
             if self.handle_get_ship():
                 continue
-            if self.appear(BATTLE_STATUS_S) or self.appear(BATTLE_STATUS_A) or self.appear(BATTLE_STATUS_B) \
-                    or self.appear(EXP_INFO_S) or self.appear(EXP_INFO_A) or self.appear(EXP_INFO_B) \
-                    or self.is_auto_search_running():
+            end = None
+            for button in [BATTLE_STATUS_S, BATTLE_STATUS_A, BATTLE_STATUS_B, EXP_INFO_S, EXP_INFO_A, EXP_INFO_B]:
+                if self.appear(button):
+                    end = button
+                    break
+            if end is None and self.is_auto_search_running():
+                end = 'AUTO_SEARCH_RUNNING'
+            if end is not None:
+                logger.info(f'Combat execute end: {end}')
                 self.device.screenshot_interval_set()
                 break
             if self.auto_search_combat_end():
@@ -330,6 +336,10 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
             if self.handle_vote_popup():
                 continue
             if self.handle_mission_popup_ack():
+                continue
+            # Battle still running, auto_search_combat_execute() ended early on a false end match.
+            # Keep waiting; PAUSE in stuck record switches to the long (180s) stuck timer.
+            if self.is_combat_executing():
                 continue
 
             # Handle low emotion combat

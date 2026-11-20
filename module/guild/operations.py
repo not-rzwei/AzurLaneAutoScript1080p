@@ -243,6 +243,7 @@ class GuildOperations(GuildBase):
         """
         timer_1 = Timer(2, count=5)
         timer_2 = Timer(2, count=5)
+        flagship_timer = Timer(10, count=30)
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
@@ -267,16 +268,43 @@ class GuildOperations(GuildBase):
                             timer_2.reset()
                             break
 
-            if self.appear_then_click(GUILD_DISPATCH_QUICK, offset=(20, 20), interval=2):
+            if self.appear(GUILD_DISPATCH_QUICK, offset=(20, 20)):
                 timer_1.reset()
                 timer_2.reset()
-                continue
+                if not flagship_timer.started():
+                    flagship_timer.start()
+                # Operation info page loads our flagship into the sea preview asynchronously.
+                # Entering fleet page before it finishes makes the game load the same character synchronously,
+                # which fails ("Assetbundle already loading async"), and the loading mask of the fleet page
+                # never closes, all clicks are blocked until game restart.
+                # If we have no fleet dispatched in this operation, there is no flagship to wait for.
+                if self._guild_operations_dispatch_flagship_loaded():
+                    pass
+                elif flagship_timer.reached():
+                    logger.info('No flagship in operation preview, probably no fleet dispatched yet')
+                else:
+                    continue
+                if self.appear_then_click(GUILD_DISPATCH_QUICK, offset=(20, 20), interval=2):
+                    continue
 
             # End
             if self.appear(GUILD_DISPATCH_RECOMMEND, offset=(20, 20)):
                 break
 
         return True
+
+    def _guild_operations_dispatch_flagship_loaded(self):
+        """
+        Returns:
+            bool: If our flagship has been loaded into the sea preview of operation info page,
+                detected by the dark name plate under the ship.
+
+        Pages:
+            in: page_guild, guild operation, operation info (GUILD_DISPATCH_QUICK)
+        """
+        # Name plate of flagship after it moves in, background is a translucent dark blue over the sea
+        # Plate is (141, 454, 265, 477), about 2200 pixels matched, 0 when no ship.
+        return self.image_color_count((141, 454, 265, 477), color=(46, 80, 92), threshold=20, count=1000)
 
     def _guild_operations_get_dispatch(self):
         """
