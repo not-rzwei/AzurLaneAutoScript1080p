@@ -43,9 +43,7 @@ class Level(ModuleBase):
 
     @Config.when(SERVER='jp')
     def _lv_grid(self):
-        # 3px higher than the 'LV.' area (digits are taller, LevelOcrMap.TOP) and wide enough to include
-        # the card's right border (x=105), LevelOcrMap cuts both off.
-        return ButtonGrid(origin=(34, 125), delta=(0, 100), button_shape=(74, 22), grid_shape=(1, 6))
+        return ButtonGrid(origin=(34, 125), delta=(0, 100), button_shape=(68, 19), grid_shape=(1, 6))
 
     @Config.when(SERVER=None)
     def _lv_grid(self):
